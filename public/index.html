@@ -1,0 +1,1015 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Circuit</title>
+<meta name="theme-color" content="#FF6600">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #FFFCFA;
+    --surface: #FFFFFF;
+    --surface-2: #FDECDF;
+    --ink: #1A1712;
+    --ink-dim: rgba(26,23,18,.60);
+    --ink-faint: rgba(26,23,18,.38);
+    --accent: #FF6600;
+    --accent-ink: #1A1712;
+    --accent-soft: rgba(255,102,0,.12);
+    --cream: #FFD9AD;
+    --line: rgba(26,23,18,.12);
+    --line-strong: rgba(26,23,18,.22);
+    --good: #1F8F5C;
+    --good-soft: rgba(31,143,92,.12);
+    --shadow: 0 1px 2px rgba(26,23,18,.06), 0 12px 28px -14px rgba(26,23,18,.28);
+    --radius: 18px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #191410;
+      --surface: #241C15;
+      --surface-2: #140F0B;
+      --ink: #FBF3EA;
+      --ink-dim: rgba(251,243,234,.62);
+      --ink-faint: rgba(251,243,234,.40);
+      --accent: #FF7A1F;
+      --accent-ink: #191410;
+      --accent-soft: rgba(255,122,31,.16);
+      --cream: #4A2E17;
+      --line: rgba(251,243,234,.14);
+      --line-strong: rgba(251,243,234,.24);
+      --good: #5FD996;
+      --good-soft: rgba(95,217,150,.14);
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 32px -16px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #191410;
+    --surface: #241C15;
+    --surface-2: #140F0B;
+    --ink: #FBF3EA;
+    --ink-dim: rgba(251,243,234,.62);
+    --ink-faint: rgba(251,243,234,.40);
+    --accent: #FF7A1F;
+    --accent-ink: #191410;
+    --accent-soft: rgba(255,122,31,.16);
+    --cream: #4A2E17;
+    --line: rgba(251,243,234,.14);
+    --line-strong: rgba(251,243,234,.24);
+    --good: #5FD996;
+    --good-soft: rgba(95,217,150,.14);
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 32px -16px rgba(0,0,0,.6);
+  }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  h1, h2, h3 { text-wrap: balance; margin: 0; }
+  .mono { font-family: "Space Mono", ui-monospace, "SF Mono", monospace; }
+  button { font-family: inherit; }
+
+  #shell {
+    width: 100%;
+    max-width: 440px;
+    min-height: 100vh;
+    background: var(--surface);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    box-shadow: var(--shadow);
+  }
+  @media (min-width: 480px) {
+    body { padding: 28px 16px; }
+    #shell { min-height: calc(100vh - 56px); border-radius: 26px; overflow: hidden; }
+  }
+
+  /* ---------- header ---------- */
+  header.topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px 14px;
+    padding-top: calc(16px + env(safe-area-inset-top));
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .mark { width: 30px; height: 30px; flex-shrink: 0; }
+  .brand-text { line-height: 1.1; }
+  .brand-text .name { font-family: "Space Mono", monospace; font-weight: 700; font-size: 17px; letter-spacing: -.01em; }
+  .brand-text .sub { font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .08em; font-weight: 600; }
+  .event-chip {
+    display: flex; flex-direction: column; align-items: flex-end;
+    font-family: "Space Mono", monospace;
+    line-height: 1.3;
+  }
+  .event-chip .ev-name { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); font-weight: 700; }
+  .event-chip .ev-count { font-size: 13px; font-weight: 700; color: var(--accent); }
+
+  /* ---------- main / views ---------- */
+  main { flex: 1; overflow-y: auto; padding: 18px 18px 100px; -webkit-overflow-scrolling: touch; }
+  .view { display: none; flex-direction: column; gap: 18px; }
+  .view.active { display: flex; }
+
+  .eyebrow {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .09em;
+    font-weight: 700; color: var(--ink-faint); margin-bottom: 6px;
+  }
+  .greeting h1 { font-size: 24px; font-weight: 800; letter-spacing: -.01em; }
+  .greeting p { margin: 6px 0 0; color: var(--ink-dim); font-size: 14.5px; line-height: 1.5; }
+
+  .card {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .card.flush { padding: 0; overflow: hidden; }
+
+  /* scan CTA */
+  .scan-cta {
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    color: inherit;
+  }
+  .scan-cta:active { transform: scale(.99); }
+  .scan-cta .orb-icon { width: 46px; height: 46px; flex-shrink: 0; }
+  .scan-cta .txt strong { display: block; font-size: 15.5px; font-weight: 700; }
+  .scan-cta .txt span { display: block; font-size: 12.5px; color: var(--ink-dim); margin-top: 2px; }
+  .scan-cta .arrow { margin-left: auto; color: var(--accent); font-size: 18px; flex-shrink: 0; }
+
+  /* goals */
+  .goal-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .goal-row:last-child { border-bottom: none; }
+  .goal-check {
+    width: 19px; height: 19px; border-radius: 6px; border: 1.5px solid var(--line-strong);
+    flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center;
+    transition: background .15s, border-color .15s;
+  }
+  .goal-row.done .goal-check { background: var(--good); border-color: var(--good); }
+  .goal-row.done span.g-label { color: var(--ink-faint); text-decoration: line-through; }
+  .goal-check svg { width: 12px; height: 12px; opacity: 0; }
+  .goal-row.done .goal-check svg { opacity: 1; }
+  .g-label { line-height: 1.4; }
+  .goals-empty { font-size: 13.5px; color: var(--ink-faint); padding: 4px 0; }
+
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .link-btn {
+    background: none; border: none; color: var(--accent); font-size: 12.5px; font-weight: 700;
+    cursor: pointer; padding: 4px 0; font-family: inherit;
+  }
+
+  /* recent strip */
+  .recent-strip { display: flex; flex-direction: column; gap: 8px; }
+  .recent-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .recent-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .recent-item .ri-name { font-weight: 600; font-size: 13.5px; flex: 1; }
+  .recent-item .ri-time { font-size: 11px; color: var(--ink-faint); font-family: "Space Mono", monospace; }
+  .empty-note { font-size: 13.5px; color: var(--ink-faint); }
+
+  /* ask box */
+  .ask-suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 100px;
+    font-size: 12px; padding: 7px 12px; cursor: pointer; color: var(--ink); font-family: inherit;
+  }
+  .chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  .ask-answer { margin-top: 12px; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; }
+  .caveat {
+    display: inline-flex; align-items: center; gap: 5px; margin-top: 10px;
+    font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .04em;
+    font-weight: 700;
+  }
+  .caveat::before { content: "\25CB"; font-size: 9px; }
+
+  /* ---------- scan view ---------- */
+  .scan-stage {
+    border: 1.5px dashed var(--line-strong); border-radius: var(--radius);
+    padding: 26px 18px; text-align: center; display: flex; flex-direction: column;
+    align-items: center; gap: 12px;
+  }
+  .scan-stage img.preview { width: 100%; max-width: 260px; border-radius: 12px; display: block; }
+  .camera-btn {
+    width: 64px; height: 64px; border-radius: 50%; border: none; cursor: pointer;
+    background: var(--accent); color: var(--accent-ink); display: flex; align-items: center;
+    justify-content: center; box-shadow: var(--shadow);
+  }
+  .camera-btn svg { width: 26px; height: 26px; }
+  .scan-stage .hint { font-size: 13px; color: var(--ink-dim); max-width: 260px; line-height: 1.5; }
+
+  .btn {
+    border: none; border-radius: 12px; padding: 13px 18px; font-weight: 700; font-size: 14.5px;
+    cursor: pointer; font-family: inherit; width: 100%;
+  }
+  .btn-primary { background: var(--accent); color: var(--accent-ink); }
+  .btn-primary:disabled { opacity: .5; cursor: default; }
+  .btn-ghost { background: transparent; border: 1.5px solid var(--line-strong); color: var(--ink); }
+  .btn-row { display: flex; gap: 10px; }
+  .btn-row .btn { width: auto; flex: 1; }
+
+  .thinking { display: flex; align-items: center; gap: 10px; padding: 20px 4px; font-size: 14px; color: var(--ink-dim); }
+  .spinner {
+    width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--line-strong);
+    border-top-color: var(--accent); animation: spin .8s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+
+  /* orb cluster */
+  .orb-cluster-wrap { display: flex; justify-content: center; padding: 6px 0 2px; }
+  .orb-cluster { width: 220px; height: 220px; position: relative; }
+  .orb-cluster svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .orb-line { stroke: var(--line-strong); stroke-width: 1.5; transition: stroke .4s; }
+  .orb-cluster.lit .orb-line { stroke: var(--accent); opacity: .35; }
+  .orb-node {
+    position: absolute; width: 40px; height: 40px; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--surface-2); border: 1.5px solid var(--line-strong);
+    transition: background .5s, box-shadow .5s, border-color .5s, transform .3s;
+  }
+  .orb-cluster.lit .orb-node {
+    background: radial-gradient(circle at 32% 28%, var(--cream), var(--accent) 72%);
+    border-color: transparent;
+    box-shadow: 0 0 0 4px var(--accent-soft), 0 6px 16px -4px rgba(255,102,0,.5);
+  }
+
+  .orb-result-name { text-align: center; }
+  .orb-result-name .rn-company { font-family: "Space Mono", monospace; font-weight: 700; font-size: 18px; }
+  .orb-result-name .rn-conf { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; margin-top: 3px; }
+
+  .orb-card {
+    display: flex; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--line);
+  }
+  .orb-card:last-of-type { border-bottom: none; }
+  .orb-badge {
+    width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
+    background: radial-gradient(circle at 32% 28%, var(--cream), var(--accent) 72%);
+  }
+  .orb-card .oc-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .orb-card .oc-text { font-size: 14px; line-height: 1.5; margin-top: 3px; }
+
+  textarea, input[type=text] {
+    width: 100%; border: 1.5px solid var(--line-strong); border-radius: 12px;
+    background: var(--surface); color: var(--ink); font-family: inherit; font-size: 14px;
+    padding: 11px 13px; resize: vertical;
+  }
+  textarea:focus, input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  label.field-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); display: block; margin-bottom: 6px; }
+
+  /* ---------- log view ---------- */
+  .log-item { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .log-head {
+    display: flex; align-items: center; gap: 12px; padding: 13px 14px; cursor: pointer; background: var(--surface-2);
+  }
+  .log-head .lh-badge { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: radial-gradient(circle at 32% 28%, var(--cream), var(--accent) 72%); }
+  .log-head .lh-txt { flex: 1; min-width: 0; }
+  .log-head .lh-name { font-weight: 700; font-size: 14.5px; }
+  .log-head .lh-time { font-size: 11px; color: var(--ink-faint); font-family: "Space Mono", monospace; margin-top: 1px; }
+  .log-head .lh-chevron { color: var(--ink-faint); transition: transform .2s; flex-shrink: 0; }
+  .log-item.open .lh-chevron { transform: rotate(180deg); }
+  .log-body { display: none; padding: 4px 16px 16px; }
+  .log-item.open .log-body { display: block; }
+  .log-note { margin-top: 10px; }
+  .log-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .text-btn {
+    background: none; border: none; font-family: inherit; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; padding: 6px 2px; color: var(--ink-dim);
+  }
+  .text-btn.danger { color: var(--accent); }
+
+  /* ---------- me view ---------- */
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .goal-picker { display: flex; flex-wrap: wrap; gap: 7px; }
+
+  /* ---------- onboarding ---------- */
+  #onboard {
+    position: absolute; inset: 0; background: var(--surface); z-index: 20;
+    display: flex; flex-direction: column; padding: 26px 22px; overflow-y: auto;
+  }
+  #onboard .ob-mark { width: 46px; height: 46px; margin-bottom: 18px; }
+  #onboard h1 { font-size: 25px; font-weight: 800; letter-spacing: -.01em; margin-bottom: 8px; }
+  #onboard p.ob-sub { color: var(--ink-dim); font-size: 14.5px; line-height: 1.55; margin: 0 0 22px; }
+  #onboard .field { margin-bottom: 16px; }
+  #onboard .ob-actions { margin-top: 8px; }
+
+  /* ---------- bottom nav ---------- */
+  nav.tabbar {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    display: flex; border-top: 1px solid var(--line); background: var(--surface);
+    padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+  }
+  .tab-btn {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: none; border: none; padding: 6px 4px; cursor: pointer; color: var(--ink-faint);
+    font-family: inherit;
+  }
+  .tab-btn svg { width: 21px; height: 21px; }
+  .tab-btn span { font-size: 10.5px; font-weight: 700; letter-spacing: .01em; }
+  .tab-btn.active { color: var(--accent); }
+  .tab-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 8px; }
+
+  #toast {
+    position: absolute; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(8px);
+    background: var(--ink); color: var(--paper); font-size: 13px; font-weight: 600;
+    padding: 10px 16px; border-radius: 100px; opacity: 0; pointer-events: none;
+    transition: opacity .2s, transform .2s; z-index: 30; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .notice-banner {
+    background: var(--accent-soft); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 13px; font-size: 12.5px; color: var(--ink-dim); line-height: 1.5;
+  }
+
+  ::-webkit-scrollbar { width: 0; height: 0; }
+</style>
+</head>
+<body>
+
+<div id="shell">
+
+  <div id="onboard" hidden>
+    <svg class="ob-mark" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="var(--accent)"/><circle cx="13" cy="17" r="11" fill="var(--cream)"/></svg>
+    <h1>Set up Circuit.</h1>
+    <p class="ob-sub">A running companion for CoCreate LA 2026 — your own goals, plus an AI read on every booth you scan. This runs on your own backend, private to you.</p>
+
+    <div class="field">
+      <label class="field-label" for="ob-name">Your name</label>
+      <input type="text" id="ob-name" placeholder="e.g. Terrence Wakefield" autocomplete="off">
+    </div>
+    <div class="field">
+      <label class="field-label" for="ob-role">Role &amp; company</label>
+      <input type="text" id="ob-role" placeholder="e.g. Founder, Emblemic" autocomplete="off">
+    </div>
+    <div class="field">
+      <label class="field-label">Why you're going — pick what applies</label>
+      <div class="goal-picker" id="ob-goal-picker"></div>
+    </div>
+    <div class="field">
+      <label class="field-label" for="ob-goal-custom">Add your own goal (optional)</label>
+      <input type="text" id="ob-goal-custom" placeholder="e.g. Scope AI-matchmaking competitors" autocomplete="off">
+    </div>
+
+    <div class="ob-actions">
+      <button class="btn btn-primary" id="ob-submit">Start using Circuit</button>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <svg class="mark" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="var(--accent)"/><circle cx="13" cy="17" r="11" fill="var(--cream)"/></svg>
+      <div class="brand-text">
+        <div class="name">Circuit</div>
+        <div class="sub">by Emblemic</div>
+      </div>
+    </div>
+    <div class="event-chip">
+      <span class="ev-name">CoCreate LA · Sep 9&ndash;10</span>
+      <span class="ev-count" id="event-countdown">&mdash;</span>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- TODAY -->
+    <section class="view active" id="view-today">
+      <div class="greeting">
+        <h1 id="greet-line">Good day.</h1>
+        <p id="greet-sub">Here's where things stand.</p>
+      </div>
+
+      <button class="scan-cta" id="cta-scan">
+        <svg class="orb-icon" viewBox="0 0 46 46"><circle cx="23" cy="23" r="23" fill="var(--accent)"/><circle cx="14" cy="18" r="12" fill="var(--cream)"/></svg>
+        <span class="txt">
+          <strong>Scan a booth</strong>
+          <span>Point your camera at a logo or sign for an instant read</span>
+        </span>
+        <span class="arrow">&#8250;</span>
+      </button>
+
+      <div>
+        <div class="section-head">
+          <div class="eyebrow">Your goals for the show</div>
+          <button class="link-btn" data-goto="me">Edit</button>
+        </div>
+        <div class="card" id="today-goals"></div>
+      </div>
+
+      <div>
+        <div class="section-head">
+          <div class="eyebrow">Recently scanned</div>
+          <button class="link-btn" data-goto="log">View log</button>
+        </div>
+        <div class="recent-strip" id="today-recent"></div>
+      </div>
+
+      <div>
+        <div class="eyebrow">Ask about CoCreate</div>
+        <div class="card">
+          <div class="ask-suggest" id="ask-chips"></div>
+          <div id="ask-thinking" class="thinking" hidden><span class="spinner"></span> Thinking&hellip;</div>
+          <div class="ask-answer" id="ask-answer"></div>
+          <div class="caveat">Claude, searching live where it helps</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCAN -->
+    <section class="view" id="view-scan">
+      <div class="eyebrow">Scan a booth</div>
+      <div id="scan-body"></div>
+    </section>
+
+    <!-- LOG -->
+    <section class="view" id="view-log">
+      <div class="eyebrow">Everyone you've scanned</div>
+      <div id="log-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+    </section>
+
+    <!-- ME -->
+    <section class="view" id="view-me">
+      <div class="eyebrow">Your profile</div>
+      <div class="field">
+        <label class="field-label" for="me-name">Name</label>
+        <input type="text" id="me-name" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label" for="me-role">Role &amp; company</label>
+        <input type="text" id="me-role" autocomplete="off">
+      </div>
+      <div class="field">
+        <label class="field-label">Goals for the show</label>
+        <div class="goal-picker" id="me-goal-picker"></div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="me-goal-custom">Add your own goal</label>
+        <input type="text" id="me-goal-custom" placeholder="Type and press Save below" autocomplete="off">
+      </div>
+      <button class="btn btn-primary" id="me-save">Save changes</button>
+      <div class="notice-banner" id="me-storage-note">Saved to your own Circuit backend — not shared with anyone else.</div>
+      <button class="text-btn danger" id="me-reset" style="align-self:flex-start;">Reset all data</button>
+    </section>
+
+  </main>
+
+  <nav class="tabbar">
+    <button class="tab-btn active" data-tab="today">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      <span>Today</span>
+    </button>
+    <button class="tab-btn" data-tab="scan">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2"/><circle cx="12" cy="12" r="3.5"/></svg>
+      <span>Scan</span>
+    </button>
+    <button class="tab-btn" data-tab="log">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      <span>Log</span>
+    </button>
+    <button class="tab-btn" data-tab="me">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5"/></svg>
+      <span>Me</span>
+    </button>
+  </nav>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Injected server-side from APP_SHARED_SECRET (see server.js) so there's nothing
+  // to keep in sync by hand. This is a basic gate, not real auth — fine for a
+  // personal, single-user tool.
+  var metaTag = document.querySelector('meta[name="app-secret"]');
+  var APP_SECRET = metaTag ? metaTag.content : "";
+
+  var EVENT_START = new Date("2026-09-09T09:00:00-07:00");
+  var EVENT_END   = new Date("2026-09-10T18:00:00-07:00");
+  var GOAL_OPTIONS = [
+    "Find new manufacturing partners",
+    "Vet suppliers for an existing line",
+    "Scope competitors in my category",
+    "Check out the CoCreate Pitch showcase",
+    "General market recon"
+  ];
+  var ORB_FIELDS = [
+    { key: "product",       label: "Product" },
+    { key: "market",        label: "Market" },
+    { key: "find_them",     label: "Find them" },
+    { key: "news",          label: "Latest buzz" },
+    { key: "why_follow_up", label: "Worth a look" }
+  ];
+
+  var profile = null;
+  var scans = [];
+  var pendingImageFile = null;
+  var lastResult = null; // {name, confidence, orbs}
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({ "x-app-secret": APP_SECRET }, opts.headers || {});
+    return fetch(path, opts).then(function (res) {
+      if (!res.ok) {
+        return res.json().catch(function () { return {}; }).then(function (body) {
+          var err = new Error(body.message || ("request failed: " + res.status));
+          err.status = res.status;
+          err.body = body;
+          throw err;
+        });
+      }
+      if (res.status === 204) return null;
+      return res.json();
+    });
+  }
+
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._h);
+    t._h = setTimeout(function () { t.classList.remove("show"); }, 2400);
+  }
+
+  function fmtTime(iso) {
+    try {
+      var d = new Date(iso);
+      var now = new Date();
+      var diffMs = now - d;
+      var mins = Math.round(diffMs / 60000);
+      if (mins < 1) return "just now";
+      if (mins < 60) return mins + "m ago";
+      var hrs = Math.round(mins / 60);
+      if (hrs < 24) return hrs + "h ago";
+      return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) + ", " +
+             d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    } catch (e) { return ""; }
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // ---------------- countdown / greeting ----------------
+  function updateCountdown() {
+    var now = new Date();
+    var el = $("event-countdown");
+    var diff = EVENT_START - now;
+    if (now > EVENT_END) {
+      el.textContent = "Wrapped";
+    } else if (now >= EVENT_START) {
+      var dayNum = now.toDateString() === EVENT_START.toDateString() ? 1 : 2;
+      el.textContent = "Day " + dayNum + " of 2 — live now";
+    } else {
+      var days = Math.ceil(diff / 86400000);
+      el.textContent = days <= 0 ? "Starts today" : "In " + days + " day" + (days === 1 ? "" : "s");
+    }
+  }
+
+  function updateGreeting() {
+    var hour = new Date().getHours();
+    var timeOfDay = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+    var name = (profile && profile.name) ? profile.name.split(" ")[0] : "there";
+    $("greet-line").textContent = "Good " + timeOfDay + ", " + name + ".";
+    var now = new Date();
+    var sub;
+    if (now > EVENT_END) sub = "CoCreate LA has wrapped — your scan log is still here.";
+    else if (now >= EVENT_START) sub = "You're on the floor. Scan a booth or check today's goals.";
+    else sub = "CoCreate LA 2026 starts in Los Angeles soon — here's where things stand.";
+    $("greet-sub").textContent = sub;
+  }
+
+  // ---------------- goal picker (shared by onboarding + Me) ----------------
+  function buildGoalPicker(container, selected) {
+    container.innerHTML = "";
+    GOAL_OPTIONS.forEach(function (g) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip" + (selected.indexOf(g) > -1 ? " on" : "");
+      b.textContent = g;
+      b.dataset.goal = g;
+      b.addEventListener("click", function () {
+        b.classList.toggle("on");
+      });
+      container.appendChild(b);
+    });
+  }
+  function readGoalPicker(container, customInput) {
+    var picked = Array.prototype.slice.call(container.querySelectorAll(".chip.on")).map(function (b) { return b.dataset.goal; });
+    var custom = customInput.value.trim();
+    if (custom) picked.push(custom);
+    return picked;
+  }
+
+  // ---------------- render: Today ----------------
+  function renderGoals() {
+    var box = $("today-goals");
+    var goals = (profile && profile.goals) || [];
+    if (!goals.length) {
+      box.innerHTML = '<div class="goals-empty">No goals set yet. <button class="link-btn" data-goto="me" style="display:inline;padding:0;">Add some</button></div>';
+      bindGotoLinks(box);
+      return;
+    }
+    var done = (profile && profile.goals_done) || {};
+    box.innerHTML = goals.map(function (g, i) {
+      var isDone = !!done[i];
+      return '<div class="goal-row' + (isDone ? " done" : "") + '" data-idx="' + i + '">' +
+        '<span class="goal-check"><svg viewBox="0 0 12 12" fill="none" stroke="' + (isDone ? "var(--accent-ink)" : "none") + '" stroke-width="2"><path d="M2 6l3 3 5-6"/></svg></span>' +
+        '<span class="g-label">' + escapeHtml(g) + '</span></div>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".goal-row"), function (row) {
+      row.addEventListener("click", function () {
+        var i = row.dataset.idx;
+        profile.goals_done = profile.goals_done || {};
+        profile.goals_done[i] = !profile.goals_done[i];
+        saveProfile();
+        renderGoals();
+      });
+    });
+  }
+
+  function renderRecent() {
+    var box = $("today-recent");
+    if (!scans.length) {
+      box.innerHTML = '<div class="empty-note">No booths scanned yet — start with your first one.</div>';
+      return;
+    }
+    box.innerHTML = scans.slice(0, 3).map(function (s) {
+      return '<div class="recent-item"><span class="recent-dot"></span>' +
+        '<span class="ri-name">' + escapeHtml(s.name || "Unknown vendor") + '</span>' +
+        '<span class="ri-time">' + fmtTime(s.created_at) + '</span></div>';
+    }).join("");
+  }
+
+  function renderToday() {
+    updateGreeting();
+    renderGoals();
+    renderRecent();
+  }
+
+  // ---------------- Ask (Today quick brief) ----------------
+  var ASK_PROMPTS = [
+    "What should I know before I go?",
+    "What's this kind of sourcing show usually like on the floor?",
+    "Tips for a first-time exhibitor conversation?"
+  ];
+  function renderAskChips() {
+    var box = $("ask-chips");
+    box.innerHTML = "";
+    ASK_PROMPTS.forEach(function (q) {
+      var b = document.createElement("button");
+      b.className = "chip";
+      b.textContent = q;
+      b.addEventListener("click", function () { runAsk(q); });
+      box.appendChild(b);
+    });
+  }
+  function runAsk(question) {
+    $("ask-thinking").hidden = false;
+    $("ask-answer").textContent = "";
+    api("/api/ask", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: question }) })
+      .then(function (data) {
+        $("ask-thinking").hidden = true;
+        $("ask-answer").textContent = data.text || "";
+      })
+      .catch(function () {
+        $("ask-thinking").hidden = true;
+        $("ask-answer").textContent = "Couldn't get an answer just now — try again.";
+      });
+  }
+
+  // ---------------- Scan flow ----------------
+  function renderScanIdle() {
+    $("scan-body").innerHTML =
+      '<div class="scan-stage">' +
+        '<button class="camera-btn" id="scan-camera-btn">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2"/><circle cx="12" cy="12" r="3.5"/></svg>' +
+        '</button>' +
+        '<div class="hint">Snap the vendor\'s logo, booth sign, or business card. Claude will identify it, search for what\'s current, and lay out five quick takeaways.</div>' +
+        '<input type="file" id="scan-file-input" accept="image/*" capture="environment" hidden>' +
+      '</div>';
+    var btn = $("scan-camera-btn");
+    var input = $("scan-file-input");
+    btn.addEventListener("click", function () { input.click(); });
+    input.addEventListener("change", function () {
+      if (input.files && input.files[0]) {
+        pendingImageFile = input.files[0];
+        renderScanPreview();
+      }
+    });
+  }
+
+  function renderScanPreview() {
+    var url = URL.createObjectURL(pendingImageFile);
+    $("scan-body").innerHTML =
+      '<div class="scan-stage">' +
+        '<img class="preview" src="' + url + '" alt="Photo to identify">' +
+        '<div class="btn-row" style="width:100%;">' +
+          '<button class="btn btn-ghost" id="scan-retake">Retake</button>' +
+          '<button class="btn btn-primary" id="scan-identify">Identify</button>' +
+        '</div>' +
+      '</div>';
+    $("scan-retake").addEventListener("click", function () { pendingImageFile = null; renderScanIdle(); });
+    $("scan-identify").addEventListener("click", runIdentify);
+  }
+
+  function runIdentify() {
+    if (!pendingImageFile) return;
+    $("scan-body").innerHTML = '<div class="thinking"><span class="spinner"></span> Identifying &amp; searching for what\'s current&hellip; usually 15&ndash;45s.</div>';
+
+    var form = new FormData();
+    form.append("photo", pendingImageFile);
+
+    api("/api/scan", { method: "POST", body: form })
+      .then(function (data) {
+        lastResult = {
+          name: data.company_name || "Unidentified vendor",
+          confidence: data.confidence || "unknown",
+          orbs: {
+            product: data.product || "",
+            market: data.market || "",
+            find_them: data.find_them || "",
+            news: data.news || "",
+            why_follow_up: data.why_follow_up || ""
+          }
+        };
+        renderScanResult();
+      })
+      .catch(function (e) { renderScanError(e); });
+  }
+
+  function renderScanError(e) {
+    var msg = (e && e.status === 401)
+      ? "This app isn't paired with its backend correctly — check the shared secret."
+      : "Something glitched on that scan — try again, maybe with a clearer photo.";
+    $("scan-body").innerHTML =
+      '<div class="card"><p style="margin:0 0 12px;font-size:14px;">' + escapeHtml(msg) + '</p>' +
+      '<button class="btn btn-ghost" id="scan-again">Try again</button></div>';
+    $("scan-again").addEventListener("click", function () { pendingImageFile = null; renderScanIdle(); });
+  }
+
+  function orbClusterSvg() {
+    var pts = [[130,30],[225,99],[189,211],[71,211],[35,99]];
+    var lines = "";
+    pts.forEach(function (p, i) {
+      var n = pts[(i + 1) % pts.length];
+      lines += '<line class="orb-line" x1="' + p[0] + '" y1="' + p[1] + '" x2="' + n[0] + '" y2="' + n[1] + '"/>';
+      lines += '<line class="orb-line" x1="' + p[0] + '" y1="' + p[1] + '" x2="130" y2="130"/>';
+    });
+    var nodes = pts.map(function (p) {
+      return '<div class="orb-node" style="left:' + (p[0] / 260 * 100) + '%; top:' + (p[1] / 260 * 100) + '%;"></div>';
+    }).join("");
+    return '<div class="orb-cluster lit" id="orb-cluster">' +
+      '<svg viewBox="0 0 260 260">' + lines + '</svg>' + nodes + '</div>';
+  }
+
+  function renderScanResult() {
+    var r = lastResult;
+    var cardsHtml = ORB_FIELDS.map(function (f) {
+      var text = r.orbs[f.key] || "—";
+      return '<div class="orb-card">' +
+        '<div class="orb-badge"></div>' +
+        '<div><div class="oc-label">' + f.label + '</div>' +
+        '<div class="oc-text">' + escapeHtml(text) + '</div></div></div>';
+    }).join("");
+
+    $("scan-body").innerHTML =
+      '<div class="orb-cluster-wrap">' + orbClusterSvg() + '</div>' +
+      '<div class="orb-result-name"><div class="rn-company">' + escapeHtml(r.name) + '</div>' +
+        '<div class="rn-conf">' + escapeHtml(r.confidence) + ' confidence read</div></div>' +
+      '<div class="caveat" style="display:flex; justify-content:center; margin-bottom:2px;">Searched live — still worth a gut check on anything critical</div>' +
+      '<div class="card flush" style="padding:2px 16px;">' + cardsHtml + '</div>' +
+      '<div class="field">' +
+        '<label class="field-label" for="scan-note">Your note (optional)</label>' +
+        '<textarea id="scan-note" rows="2" placeholder="e.g. Booth 214, ask for Mei re: MOQs"></textarea>' +
+      '</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn btn-ghost" id="scan-discard">Discard</button>' +
+        '<button class="btn btn-primary" id="scan-save">Save to log</button>' +
+      '</div>';
+
+    $("scan-discard").addEventListener("click", function () { pendingImageFile = null; lastResult = null; renderScanIdle(); });
+    $("scan-save").addEventListener("click", saveScan);
+  }
+
+  function saveScan() {
+    var note = $("scan-note").value.trim();
+    var entry = { name: lastResult.name, confidence: lastResult.confidence, orbs: lastResult.orbs, note: note };
+    api("/api/scans", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(entry) })
+      .then(function (created) {
+        scans.unshift(created);
+        pendingImageFile = null;
+        lastResult = null;
+        toast("Saved to your log");
+        renderLog(); renderRecent(); renderScanIdle();
+        switchTab("log");
+      })
+      .catch(function () { toast("Couldn't save — check your connection and try again."); });
+  }
+
+  // ---------------- Log ----------------
+  function renderLog() {
+    var box = $("log-list");
+    if (!scans.length) {
+      box.innerHTML = '<div class="empty-note">Nothing logged yet. Scans you save will show up here.</div>';
+      return;
+    }
+    box.innerHTML = scans.map(function (s) {
+      var orbRows = ORB_FIELDS.map(function (f) {
+        return '<div class="orb-card"><div class="orb-badge"></div><div>' +
+          '<div class="oc-label">' + f.label + '</div><div class="oc-text">' + escapeHtml((s.orbs && s.orbs[f.key]) || "—") + '</div></div></div>';
+      }).join("");
+      return '<div class="log-item" data-id="' + s.id + '">' +
+        '<div class="log-head">' +
+          '<div class="lh-badge"></div>' +
+          '<div class="lh-txt"><div class="lh-name">' + escapeHtml(s.name || "Unknown vendor") + '</div>' +
+          '<div class="lh-time">' + fmtTime(s.created_at) + '</div></div>' +
+          '<span class="lh-chevron">&#9662;</span>' +
+        '</div>' +
+        '<div class="log-body">' + orbRows +
+          '<div class="log-note"><label class="field-label">Note</label>' +
+          '<textarea rows="2" class="log-note-field">' + escapeHtml(s.note || "") + '</textarea></div>' +
+          '<div class="log-actions">' +
+            '<button class="text-btn log-note-save">Save note</button>' +
+            '<button class="text-btn danger log-delete">Delete</button>' +
+          '</div>' +
+        '</div></div>';
+    }).join("");
+
+    Array.prototype.forEach.call(box.querySelectorAll(".log-item"), function (item) {
+      var id = item.dataset.id;
+      item.querySelector(".log-head").addEventListener("click", function () {
+        item.classList.toggle("open");
+      });
+      item.querySelector(".log-note-save").addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var val = item.querySelector(".log-note-field").value.trim();
+        updateScanNote(id, val);
+      });
+      var delBtn = item.querySelector(".log-delete");
+      delBtn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (delBtn.dataset.confirm === "1") {
+          deleteScan(id);
+        } else {
+          delBtn.dataset.confirm = "1";
+          delBtn.textContent = "Tap again to confirm";
+          setTimeout(function () { delBtn.dataset.confirm = ""; delBtn.textContent = "Delete"; }, 3000);
+        }
+      });
+    });
+  }
+
+  function updateScanNote(id, note) {
+    var local = scans.find(function (s) { return String(s.id) === String(id); });
+    if (local) local.note = note;
+    api("/api/scans/" + id, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ note: note }) })
+      .then(function () { toast("Note saved"); })
+      .catch(function () { toast("Couldn't save the note — try again."); });
+  }
+
+  function deleteScan(id) {
+    scans = scans.filter(function (s) { return String(s.id) !== String(id); });
+    renderLog(); renderRecent();
+    api("/api/scans/" + id, { method: "DELETE" }).catch(function () {});
+    toast("Deleted");
+  }
+
+  // ---------------- Me ----------------
+  function renderMe() {
+    $("me-name").value = (profile && profile.name) || "";
+    $("me-role").value = (profile && profile.role) || "";
+    $("me-goal-custom").value = "";
+    buildGoalPicker($("me-goal-picker"), (profile && profile.goals) || []);
+  }
+
+  $("me-save").addEventListener("click", function () {
+    var goals = readGoalPicker($("me-goal-picker"), $("me-goal-custom"));
+    var prevDone = (profile && profile.goals_done) || {};
+    profile = { name: $("me-name").value.trim(), role: $("me-role").value.trim(), goals: goals, goals_done: prevDone };
+    saveProfile();
+    toast("Saved");
+    renderToday();
+  });
+
+  $("me-reset").addEventListener("click", function (ev) {
+    var btn = ev.currentTarget;
+    if (btn.dataset.confirm === "1") {
+      profile = { name: "", role: "", goals: [], goals_done: {} };
+      saveProfile();
+      renderToday();
+      $("onboard").hidden = false;
+      btn.dataset.confirm = "";
+      btn.textContent = "Reset all data";
+    } else {
+      btn.dataset.confirm = "1";
+      btn.textContent = "Tap again to confirm reset";
+      setTimeout(function () { btn.dataset.confirm = ""; btn.textContent = "Reset all data"; }, 3000);
+    }
+  });
+
+  function saveProfile() {
+    api("/api/profile", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(profile) })
+      .catch(function () { toast("Couldn't save — check your connection."); });
+  }
+
+  // ---------------- tabs ----------------
+  function switchTab(name) {
+    Array.prototype.forEach.call(document.querySelectorAll(".view"), function (v) { v.classList.remove("active"); });
+    Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function (b) { b.classList.toggle("active", b.dataset.tab === name); });
+    $("view-" + name).classList.add("active");
+    if (name === "me") renderMe();
+    document.querySelector("main").scrollTop = 0;
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function (b) {
+    b.addEventListener("click", function () { switchTab(b.dataset.tab); });
+  });
+  function bindGotoLinks(scope) {
+    Array.prototype.forEach.call((scope || document).querySelectorAll("[data-goto]"), function (b) {
+      b.addEventListener("click", function () { switchTab(b.dataset.goto); });
+    });
+  }
+  bindGotoLinks(document);
+  $("cta-scan").addEventListener("click", function () { switchTab("scan"); });
+
+  // ---------------- onboarding ----------------
+  function showOnboard() {
+    buildGoalPicker($("ob-goal-picker"), []);
+    $("onboard").hidden = false;
+  }
+  $("ob-submit").addEventListener("click", function () {
+    var name = $("ob-name").value.trim();
+    var role = $("ob-role").value.trim();
+    var goals = readGoalPicker($("ob-goal-picker"), $("ob-goal-custom"));
+    profile = { name: name, role: role, goals: goals, goals_done: {} };
+    saveProfile();
+    $("onboard").hidden = true;
+    renderToday();
+    toast("You're set up");
+  });
+
+  // ---------------- init ----------------
+  function init() {
+    renderScanIdle();
+    renderAskChips();
+    renderLog();
+    updateCountdown();
+    setInterval(updateCountdown, 60000);
+
+    Promise.all([
+      api("/api/profile").catch(function () { return null; }),
+      api("/api/scans").catch(function () { return []; })
+    ]).then(function (results) {
+      profile = results[0];
+      scans = results[1] || [];
+      renderLog(); renderRecent();
+      if (!profile || (!profile.name && !(profile.goals || []).length)) {
+        showOnboard();
+      }
+      renderToday();
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

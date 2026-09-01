@@ -1,0 +1,20 @@
+{
+  "name": "circuit-app",
+  "version": "0.1.0",
+  "private": true,
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "multer": "^2.2.0",
+    "node-fetch": "^2.7.0",
+    "pg": "^8.13.1"
+  }
+}
