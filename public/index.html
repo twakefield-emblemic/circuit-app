@@ -24,6 +24,8 @@
     --line-strong: rgba(26,23,18,.22);
     --good: #1F8F5C;
     --good-soft: rgba(31,143,92,.12);
+    --warn: #B8790C;
+    --low: #9A6B52;
     --shadow: 0 1px 2px rgba(26,23,18,.06), 0 12px 28px -14px rgba(26,23,18,.28);
     --radius: 18px;
   }
@@ -43,6 +45,8 @@
       --line-strong: rgba(251,243,234,.24);
       --good: #5FD996;
       --good-soft: rgba(95,217,150,.14);
+      --warn: #E8B04B;
+      --low: #C99A82;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 32px -16px rgba(0,0,0,.6);
     }
   }
@@ -61,6 +65,8 @@
     --line-strong: rgba(251,243,234,.24);
     --good: #5FD996;
     --good-soft: rgba(95,217,150,.14);
+    --warn: #E8B04B;
+    --low: #C99A82;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 32px -16px rgba(0,0,0,.6);
   }
 
@@ -211,6 +217,53 @@
   }
   .caveat::before { content: "\25CB"; font-size: 9px; }
 
+  /* meetings */
+  .meet-list { display: flex; flex-direction: column; gap: 8px; }
+  .meet-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .meet-info { flex: 1; min-width: 0; }
+  .meet-who { font-weight: 600; font-size: 13.5px; }
+  .meet-meta { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+  .meet-status {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    padding: 5px 10px; border-radius: 100px; flex-shrink: 0; cursor: pointer; border: none; font-family: inherit;
+    background: color-mix(in srgb, var(--score-color, var(--ink-faint)) 16%, transparent);
+    color: var(--score-color, var(--ink-faint));
+  }
+  .meet-del {
+    background: none; border: none; color: var(--ink-faint); cursor: pointer; flex-shrink: 0;
+    font-size: 16px; line-height: 1; padding: 4px;
+  }
+
+  /* schedule */
+  .sched-list { display: flex; flex-direction: column; margin-top: 10px; }
+  .sched-item { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .sched-item:last-child { border-bottom: none; padding-bottom: 2px; }
+  .sched-time {
+    font-family: "Space Mono", monospace; font-size: 11px; color: var(--ink-faint);
+    width: 58px; flex-shrink: 0; padding-top: 1px; text-transform: uppercase;
+  }
+  .sched-info .st-title { font-weight: 600; font-size: 13.5px; }
+  .sched-info .st-sub { font-size: 12px; color: var(--ink-dim); margin-top: 2px; line-height: 1.4; }
+
+  /* community */
+  .comm-links { display: flex; flex-direction: column; gap: 8px; }
+  .comm-link {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px; text-decoration: none; color: inherit;
+  }
+  .comm-link .cl-icon {
+    width: 32px; height: 32px; border-radius: 50%; background: var(--accent-soft);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 14px;
+  }
+  .comm-link .cl-text { flex: 1; min-width: 0; }
+  .comm-link .cl-name { display: block; font-weight: 600; font-size: 13.5px; }
+  .comm-link .cl-sub { display: block; font-size: 11.5px; color: var(--ink-faint); margin-top: 1px; }
+
   /* ---------- scan view ---------- */
   .scan-stage {
     border: 1.5px dashed var(--line-strong); border-radius: var(--radius);
@@ -252,19 +305,64 @@
   .orb-cluster.lit .orb-line { stroke: var(--accent); opacity: .35; }
   .orb-node {
     position: absolute; width: 40px; height: 40px; border-radius: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%) scale(.6);
     background: var(--surface-2); border: 1.5px solid var(--line-strong);
-    transition: background .5s, box-shadow .5s, border-color .5s, transform .3s;
+    opacity: 0;
+    transition: background .45s, box-shadow .45s, border-color .45s, transform .45s cubic-bezier(.34,1.56,.64,1), opacity .35s;
+  }
+  .orb-cluster.assembled .orb-node {
+    opacity: 1; transform: translate(-50%, -50%) scale(1);
   }
   .orb-cluster.lit .orb-node {
     background: radial-gradient(circle at 32% 28%, var(--cream), var(--accent) 72%);
     border-color: transparent;
     box-shadow: 0 0 0 4px var(--accent-soft), 0 6px 16px -4px rgba(255,102,0,.5);
   }
+  .orb-node:nth-of-type(1) { transition-delay: .05s; }
+  .orb-node:nth-of-type(2) { transition-delay: .12s; }
+  .orb-node:nth-of-type(3) { transition-delay: .19s; }
+  .orb-node:nth-of-type(4) { transition-delay: .26s; }
+  .orb-node:nth-of-type(5) { transition-delay: .33s; }
+  .orb-cluster .orb-center-pulse {
+    position: absolute; left: 50%; top: 50%; width: 26px; height: 26px; border-radius: 50%;
+    transform: translate(-50%, -50%); background: var(--accent); opacity: 0;
+  }
+  .orb-cluster.lit .orb-center-pulse { animation: orb-pulse 2.2s ease-out .5s infinite; }
+  @keyframes orb-pulse {
+    0% { opacity: .55; transform: translate(-50%, -50%) scale(.4); }
+    70% { opacity: 0; transform: translate(-50%, -50%) scale(2.6); }
+    100% { opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .orb-node { transition: background .3s, opacity .2s; transform: translate(-50%, -50%) scale(1) !important; opacity: 1 !important; }
+    .orb-cluster.lit .orb-center-pulse { animation: none; }
+  }
 
   .orb-result-name { text-align: center; }
   .orb-result-name .rn-company { font-family: "Space Mono", monospace; font-weight: 700; font-size: 18px; }
   .orb-result-name .rn-conf { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; margin-top: 3px; }
+
+  /* Emblemic Score */
+  .escore { display: flex; align-items: center; justify-content: center; gap: 9px; margin: 10px 0 2px; }
+  .escore-ring {
+    position: relative; width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Space Mono", monospace; font-weight: 700; font-size: 13px;
+    background: conic-gradient(var(--score-color) calc(var(--score-pct) * 1%), var(--line) 0);
+  }
+  .escore-ring::before {
+    content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--surface);
+  }
+  .escore-ring span { position: relative; color: var(--ink); }
+  .escore-text { text-align: left; }
+  .escore-label { font-weight: 700; font-size: 13.5px; color: var(--score-color); }
+  .escore-reasons { font-size: 12px; color: var(--ink-dim); max-width: 230px; line-height: 1.35; }
+  .escore-chip {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700;
+    letter-spacing: .02em; padding: 3px 9px; border-radius: 99px; color: var(--score-color);
+    background: color-mix(in srgb, var(--score-color) 16%, transparent);
+  }
+  .escore-chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--score-color); }
 
   .orb-card {
     display: flex; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--line);
@@ -293,9 +391,10 @@
   .log-head .lh-badge { width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
     background: radial-gradient(circle at 32% 28%, var(--cream), var(--accent) 72%); }
   .log-head .lh-txt { flex: 1; min-width: 0; }
-  .log-head .lh-name { font-weight: 700; font-size: 14.5px; }
+  .log-head .lh-name { font-weight: 700; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .log-head .lh-time { font-size: 11px; color: var(--ink-faint); font-family: "Space Mono", monospace; margin-top: 1px; }
   .log-head .lh-chevron { color: var(--ink-faint); transition: transform .2s; flex-shrink: 0; }
+  .log-head .escore-chip { flex-shrink: 0; }
   .log-item.open .lh-chevron { transform: rotate(180deg); }
   .log-body { display: none; padding: 4px 16px 16px; }
   .log-item.open .log-body { display: block; }
@@ -434,6 +533,53 @@
       </div>
 
       <div>
+        <div class="section-head">
+          <div class="eyebrow">My Meetings</div>
+          <button class="link-btn" id="meet-add-toggle">+ Add</button>
+        </div>
+        <div class="card" id="meet-form-card" hidden>
+          <div class="field">
+            <label class="field-label" for="meet-who">Who</label>
+            <input type="text" id="meet-who" placeholder="e.g. Mei Chen" autocomplete="off">
+          </div>
+          <div class="field">
+            <label class="field-label" for="meet-company">Company</label>
+            <input type="text" id="meet-company" placeholder="e.g. Northline Components" autocomplete="off">
+          </div>
+          <div class="field">
+            <label class="field-label" for="meet-time">When</label>
+            <input type="text" id="meet-time" placeholder="e.g. Day 1, after lunch" autocomplete="off">
+          </div>
+          <div class="field">
+            <label class="field-label" for="meet-note">Note (optional)</label>
+            <textarea id="meet-note" rows="2" placeholder="What you want to cover"></textarea>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-ghost" id="meet-cancel">Cancel</button>
+            <button class="btn btn-primary" id="meet-save">Save request</button>
+          </div>
+        </div>
+        <div id="today-meetings"></div>
+      </div>
+
+      <div>
+        <div class="eyebrow">Show Schedule</div>
+        <div class="card">
+          <div class="ask-suggest" id="sched-days"></div>
+          <div class="sched-list" id="sched-list"></div>
+          <div class="caveat">South Hall GHJ &amp; meeting rooms (300 series) &middot; LA Convention Center</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="eyebrow">Community</div>
+        <div class="card">
+          <div class="comm-links" id="comm-links"></div>
+          <div class="caveat">Hashtag #CoCreate2026</div>
+        </div>
+      </div>
+
+      <div>
         <div class="eyebrow">Ask about CoCreate</div>
         <div class="card">
           <div class="ask-suggest" id="ask-chips"></div>
@@ -531,8 +677,32 @@
     { key: "why_follow_up", label: "Worth a look" }
   ];
 
+  // Real published agenda items only — CoCreate LA hasn't published per-session times
+  // as of this build, so times show "TBA" rather than guessing. Source: alibabacocreate.com.
+  var SCHEDULE = {
+    1: [
+      { time: "TBA", title: "Alibaba.com Global Launch", sub: "Unveiling Accio Work — their AI-powered global e-commerce platform" },
+      { time: "TBA", title: "Business Transformation", sub: "“From the Court to a Billion-Dollar Empire”, featuring Magic Johnson" },
+      { time: "TBA", title: "SMB AI Transformation Summit", sub: "Future-proofing supply chains for North American brands" },
+      { time: "TBA", title: "CoCreate Match", sub: "1:1 networking with industry leaders and potential partners" }
+    ],
+    2: [
+      { time: "TBA", title: "Innovation Salon", sub: "Digital transformation insights, featuring DHL, Fiserv, and Shark Tank" },
+      { time: "TBA", title: "CoCreate Pitch Finals", sub: "$1M+ prize pool — billed as the world's largest product-based startup competition" }
+    ]
+  };
+
+  var COMMUNITY_LINKS = [
+    { icon: "📷", name: "Instagram", sub: "@alibaba.com_official", url: "https://www.instagram.com/alibaba.com_official/" },
+    { icon: "👥", name: "Facebook", sub: "Alibaba.com Global", url: "https://www.facebook.com/Alibaba.comGlobal/" },
+    { icon: "🌐", name: "Event site", sub: "alibabacocreate.com", url: "https://www.alibabacocreate.com/us" },
+    { icon: "✉️", name: "Event team", sub: "cocreate@service.alibaba.com", url: "mailto:cocreate@service.alibaba.com" }
+  ];
+
   var profile = null;
   var scans = [];
+  var meetings = [];
+  var scheduleDay = 1;
   var pendingImageFile = null;
   var lastResult = null; // {name, confidence, orbs}
 
@@ -582,6 +752,39 @@
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[c];
     });
+  }
+
+  // ---------------- Emblemic Score ----------------
+  // Tiering is intentionally simple for this first-pass score: >=70 reads as a strong
+  // match, 40-69 worth a look, below that (or no score at all) low priority.
+  function scoreColorVar(score) {
+    if (!Number.isFinite(score)) return "var(--ink-faint)";
+    if (score >= 70) return "var(--good)";
+    if (score >= 40) return "var(--warn)";
+    return "var(--low)";
+  }
+
+  function escoreHtml(score, label, reasons) {
+    var has = Number.isFinite(score);
+    var color = scoreColorVar(score);
+    var pct = has ? score : 0;
+    return '<div class="escore">' +
+      '<div class="escore-ring" style="--score-color:' + color + '; --score-pct:' + pct + ';">' +
+        '<span>' + (has ? score : "—") + '</span>' +
+      '</div>' +
+      '<div class="escore-text">' +
+        '<div class="escore-label" style="color:' + color + ';">' + escapeHtml(label || "Emblemic Score") + '</div>' +
+        (reasons ? '<div class="escore-reasons">' + escapeHtml(reasons) + '</div>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  function escoreChipHtml(score, label) {
+    if (!Number.isFinite(score)) return "";
+    var color = scoreColorVar(score);
+    return '<span class="escore-chip" style="--score-color:' + color + ';">' +
+      score + (label ? " · " + escapeHtml(label) : "") +
+    '</span>';
   }
 
   // ---------------- countdown / greeting ----------------
@@ -679,6 +882,112 @@
     updateGreeting();
     renderGoals();
     renderRecent();
+    renderMeetings();
+  }
+
+  // ---------------- My Meetings ----------------
+  function loadMeetings() {
+    return api("/api/meetings").then(function (rows) { meetings = rows || []; renderMeetings(); })
+      .catch(function () { /* leave whatever's already rendered */ });
+  }
+
+  function renderMeetings() {
+    var box = $("today-meetings");
+    if (!meetings.length) {
+      box.innerHTML = '<div class="empty-note">No meeting requests yet — add who you want to sit down with.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="meet-list">' + meetings.map(function (m) {
+      var statusColor = m.status === "confirmed" ? "var(--good)" : m.status === "done" ? "var(--ink-faint)" : "var(--warn)";
+      return '<div class="meet-item" data-id="' + m.id + '">' +
+        '<div class="meet-info">' +
+          '<div class="meet-who">' + escapeHtml(m.who || "Unnamed") + (m.company ? ' <span style="color:var(--ink-faint);font-weight:400;">&middot; ' + escapeHtml(m.company) + '</span>' : '') + '</div>' +
+          '<div class="meet-meta">' + escapeHtml(m.meeting_time || "No time set") + '</div>' +
+        '</div>' +
+        '<button class="meet-status" style="--score-color:' + statusColor + ';" data-action="cycle">' + escapeHtml(m.status || "requested") + '</button>' +
+        '<button class="meet-del" data-action="del" aria-label="Delete meeting">&times;</button>' +
+      '</div>';
+    }).join("") + '</div>';
+
+    Array.prototype.forEach.call(box.querySelectorAll(".meet-item"), function (item) {
+      var id = item.dataset.id;
+      item.querySelector('[data-action="cycle"]').addEventListener("click", function () { cycleMeetingStatus(id); });
+      item.querySelector('[data-action="del"]').addEventListener("click", function () { deleteMeeting(id); });
+    });
+  }
+
+  var MEETING_STATUS_CYCLE = { requested: "confirmed", confirmed: "done", done: "requested" };
+  function cycleMeetingStatus(id) {
+    var m = meetings.find(function (x) { return String(x.id) === String(id); });
+    if (!m) return;
+    var next = MEETING_STATUS_CYCLE[m.status] || "requested";
+    m.status = next;
+    renderMeetings();
+    api("/api/meetings/" + id, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: next }) })
+      .catch(function () { toast("Couldn't update — try again."); });
+  }
+
+  function deleteMeeting(id) {
+    meetings = meetings.filter(function (x) { return String(x.id) !== String(id); });
+    renderMeetings();
+    api("/api/meetings/" + id, { method: "DELETE" }).catch(function () { toast("Couldn't delete — try again."); });
+  }
+
+  function resetMeetingForm() {
+    $("meet-who").value = ""; $("meet-company").value = ""; $("meet-time").value = ""; $("meet-note").value = "";
+  }
+  $("meet-add-toggle").addEventListener("click", function () {
+    $("meet-form-card").hidden = !$("meet-form-card").hidden;
+    if (!$("meet-form-card").hidden) $("meet-who").focus();
+  });
+  $("meet-cancel").addEventListener("click", function () { $("meet-form-card").hidden = true; resetMeetingForm(); });
+  $("meet-save").addEventListener("click", function () {
+    var who = $("meet-who").value.trim();
+    if (!who) { toast("Add a name at least"); return; }
+    var body = {
+      who: who, company: $("meet-company").value.trim(),
+      meetingTime: $("meet-time").value.trim(), note: $("meet-note").value.trim(), status: "requested"
+    };
+    api("/api/meetings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (created) {
+        meetings.unshift(created);
+        renderMeetings();
+        $("meet-form-card").hidden = true;
+        resetMeetingForm();
+        toast("Meeting request saved");
+      })
+      .catch(function () { toast("Couldn't save — check your connection and try again."); });
+  });
+
+  // ---------------- Show Schedule ----------------
+  function renderScheduleDays() {
+    var box = $("sched-days");
+    box.innerHTML = "";
+    [{ n: 1, label: "Day 1 · Sep 9" }, { n: 2, label: "Day 2 · Sep 10" }].forEach(function (d) {
+      var b = document.createElement("button");
+      b.className = "chip" + (scheduleDay === d.n ? " on" : "");
+      b.textContent = d.label;
+      b.addEventListener("click", function () { scheduleDay = d.n; renderScheduleDays(); renderSchedule(); });
+      box.appendChild(b);
+    });
+  }
+  function renderSchedule() {
+    var items = SCHEDULE[scheduleDay] || [];
+    $("sched-list").innerHTML = items.map(function (it) {
+      return '<div class="sched-item"><div class="sched-time">' + escapeHtml(it.time) + '</div>' +
+        '<div class="sched-info"><div class="st-title">' + escapeHtml(it.title) + '</div>' +
+        '<div class="st-sub">' + escapeHtml(it.sub) + '</div></div></div>';
+    }).join("");
+  }
+
+  // ---------------- Community ----------------
+  function renderCommunity() {
+    $("comm-links").innerHTML = COMMUNITY_LINKS.map(function (l) {
+      return '<a class="comm-link" href="' + l.url + '" target="_blank" rel="noopener noreferrer">' +
+        '<span class="cl-icon">' + l.icon + '</span>' +
+        '<span class="cl-text"><span class="cl-name">' + escapeHtml(l.name) + '</span>' +
+        '<span class="cl-sub"> ' + escapeHtml(l.sub) + '</span></span></a>';
+    }).join("");
   }
 
   // ---------------- Ask (Today quick brief) ----------------
@@ -765,7 +1074,10 @@
             find_them: data.find_them || "",
             news: data.news || "",
             why_follow_up: data.why_follow_up || ""
-          }
+          },
+          score: Number.isFinite(data.score) ? data.score : null,
+          scoreLabel: data.score_label || "",
+          scoreReasons: data.score_reasons || ""
         };
         renderScanResult();
       })
@@ -793,8 +1105,25 @@
     var nodes = pts.map(function (p) {
       return '<div class="orb-node" style="left:' + (p[0] / 260 * 100) + '%; top:' + (p[1] / 260 * 100) + '%;"></div>';
     }).join("");
-    return '<div class="orb-cluster lit" id="orb-cluster">' +
-      '<svg viewBox="0 0 260 260">' + lines + '</svg>' + nodes + '</div>';
+    // Starts unlit/uncollapsed — animateOrbCluster() stages the assemble-then-light reveal
+    // right after this is inserted into the page, so the scan result feels like it's
+    // arriving rather than just appearing.
+    return '<div class="orb-cluster" id="orb-cluster">' +
+      '<svg viewBox="0 0 260 260">' + lines + '</svg>' + nodes +
+      '<div class="orb-center-pulse"></div></div>';
+  }
+
+  function animateOrbCluster() {
+    var el = $("orb-cluster");
+    if (!el) return;
+    // Two rAFs so the browser paints the pre-animation state first — a single rAF can
+    // sometimes coalesce with the initial layout and skip straight to the end state.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        el.classList.add("assembled");
+        setTimeout(function () { el.classList.add("lit"); }, 420);
+      });
+    });
   }
 
   function renderScanResult() {
@@ -811,6 +1140,7 @@
       '<div class="orb-cluster-wrap">' + orbClusterSvg() + '</div>' +
       '<div class="orb-result-name"><div class="rn-company">' + escapeHtml(r.name) + '</div>' +
         '<div class="rn-conf">' + escapeHtml(r.confidence) + ' confidence read</div></div>' +
+      escoreHtml(r.score, r.scoreLabel, r.scoreReasons) +
       '<div class="caveat" style="display:flex; justify-content:center; margin-bottom:2px;">Searched live — still worth a gut check on anything critical</div>' +
       '<div class="card flush" style="padding:2px 16px;">' + cardsHtml + '</div>' +
       '<div class="field">' +
@@ -824,11 +1154,15 @@
 
     $("scan-discard").addEventListener("click", function () { pendingImageFile = null; lastResult = null; renderScanIdle(); });
     $("scan-save").addEventListener("click", saveScan);
+    animateOrbCluster();
   }
 
   function saveScan() {
     var note = $("scan-note").value.trim();
-    var entry = { name: lastResult.name, confidence: lastResult.confidence, orbs: lastResult.orbs, note: note };
+    var entry = {
+      name: lastResult.name, confidence: lastResult.confidence, orbs: lastResult.orbs, note: note,
+      score: lastResult.score, scoreLabel: lastResult.scoreLabel, scoreReasons: lastResult.scoreReasons
+    };
     api("/api/scans", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(entry) })
       .then(function (created) {
         scans.unshift(created);
@@ -853,14 +1187,18 @@
         return '<div class="orb-card"><div class="orb-badge"></div><div>' +
           '<div class="oc-label">' + f.label + '</div><div class="oc-text">' + escapeHtml((s.orbs && s.orbs[f.key]) || "—") + '</div></div></div>';
       }).join("");
+      var scoreVal = s.score === null || s.score === undefined ? NaN : Number(s.score);
       return '<div class="log-item" data-id="' + s.id + '">' +
         '<div class="log-head">' +
           '<div class="lh-badge"></div>' +
           '<div class="lh-txt"><div class="lh-name">' + escapeHtml(s.name || "Unknown vendor") + '</div>' +
           '<div class="lh-time">' + fmtTime(s.created_at) + '</div></div>' +
+          escoreChipHtml(scoreVal, s.score_label) +
           '<span class="lh-chevron">&#9662;</span>' +
         '</div>' +
-        '<div class="log-body">' + orbRows +
+        '<div class="log-body">' +
+          (s.score_reasons ? '<div class="escore-reasons" style="margin:0 0 10px;max-width:none;">' + escapeHtml(s.score_reasons) + '</div>' : '') +
+          orbRows +
           '<div class="log-note"><label class="field-label">Note</label>' +
           '<textarea rows="2" class="log-note-field">' + escapeHtml(s.note || "") + '</textarea></div>' +
           '<div class="log-actions">' +
@@ -987,15 +1325,20 @@
     renderScanIdle();
     renderAskChips();
     renderLog();
+    renderScheduleDays();
+    renderSchedule();
+    renderCommunity();
     updateCountdown();
     setInterval(updateCountdown, 60000);
 
     Promise.all([
       api("/api/profile").catch(function () { return null; }),
-      api("/api/scans").catch(function () { return []; })
+      api("/api/scans").catch(function () { return []; }),
+      api("/api/meetings").catch(function () { return []; })
     ]).then(function (results) {
       profile = results[0];
       scans = results[1] || [];
+      meetings = results[2] || [];
       renderLog(); renderRecent();
       if (!profile || (!profile.name && !(profile.goals || []).length)) {
         showOnboard();

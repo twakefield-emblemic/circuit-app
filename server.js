@@ -67,10 +67,19 @@ app.get("/api/scans", requireAppSecret, async (req, res, next) => {
 
 app.post("/api/scans", requireAppSecret, async (req, res, next) => {
   try {
-    const { name, confidence, orbs, note } = req.body || {};
+    const { name, confidence, orbs, note, score, scoreLabel, scoreReasons } = req.body || {};
     const { rows } = await query(
-      `INSERT INTO scans (name, confidence, orbs, note) VALUES ($1, $2, $3::jsonb, $4) RETURNING *`,
-      [name || "Unidentified vendor", confidence || "unknown", JSON.stringify(orbs || {}), note || ""]
+      `INSERT INTO scans (name, confidence, orbs, note, score, score_label, score_reasons)
+       VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7) RETURNING *`,
+      [
+        name || "Unidentified vendor",
+        confidence || "unknown",
+        JSON.stringify(orbs || {}),
+        note || "",
+        Number.isFinite(score) ? score : null,
+        scoreLabel || "",
+        scoreReasons || "",
+      ]
     );
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
@@ -98,8 +107,53 @@ app.delete("/api/scans/:id", requireAppSecret, async (req, res, next) => {
 app.post("/api/scan", requireAppSecret, upload.single("photo"), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "invalid_request", message: "no photo attached" });
-    const result = await identifyVendor(req.file.buffer, req.file.mimetype || "image/jpeg");
+    // Emblemic Score weighs the scan against the buyer's own stated goals, so pull
+    // whatever's saved on the profile right now — no goals yet just means a lighter score.
+    const { rows } = await query("SELECT goals FROM profile WHERE id = 1");
+    const goals = (rows[0] && rows[0].goals) || [];
+    const result = await identifyVendor(req.file.buffer, req.file.mimetype || "image/jpeg", goals);
     res.json(result);
+  } catch (err) { next(err); }
+});
+
+app.get("/api/meetings", requireAppSecret, async (req, res, next) => {
+  try {
+    const { rows } = await query("SELECT * FROM meetings ORDER BY created_at DESC LIMIT 200");
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+app.post("/api/meetings", requireAppSecret, async (req, res, next) => {
+  try {
+    const { who, company, meetingTime, status, note } = req.body || {};
+    const { rows } = await query(
+      `INSERT INTO meetings (who, company, meeting_time, status, note) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [who || "", company || "", meetingTime || "", status || "requested", note || ""]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+app.patch("/api/meetings/:id", requireAppSecret, async (req, res, next) => {
+  try {
+    const { who, company, meetingTime, status, note } = req.body || {};
+    const { rows } = await query(
+      `UPDATE meetings SET
+         who = COALESCE($1, who), company = COALESCE($2, company),
+         meeting_time = COALESCE($3, meeting_time), status = COALESCE($4, status),
+         note = COALESCE($5, note)
+       WHERE id = $6 RETURNING *`,
+      [who, company, meetingTime, status, note, req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "not_found" });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+app.delete("/api/meetings/:id", requireAppSecret, async (req, res, next) => {
+  try {
+    await query("DELETE FROM meetings WHERE id = $1", [req.params.id]);
+    res.status(204).end();
   } catch (err) { next(err); }
 });
 

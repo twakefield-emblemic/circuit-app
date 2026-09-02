@@ -35,7 +35,26 @@ async function initDb() {
     );
   `);
 
+  // Emblemic Score — added after the table already existed in production, so these are
+  // migration-safe additive columns rather than part of the CREATE TABLE above.
+  await query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS score INTEGER;`);
+  await query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS score_label TEXT;`);
+  await query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS score_reasons TEXT;`);
+
   await query(`CREATE INDEX IF NOT EXISTS idx_scans_created_at ON scans (created_at DESC);`);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS meetings (
+      id SERIAL PRIMARY KEY,
+      who TEXT NOT NULL DEFAULT '',
+      company TEXT NOT NULL DEFAULT '',
+      meeting_time TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'requested',
+      note TEXT NOT NULL DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_meetings_created_at ON meetings (created_at DESC);`);
 }
 
 module.exports = { query, initDb, pool };
