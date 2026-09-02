@@ -15,12 +15,24 @@ app.use(express.json());
 // injected server-side) rather than express.static — there are no other static
 // assets in public/, it's a single-file app.
 const indexTemplate = fs.readFileSync(path.join(__dirname, "public", "index.html"), "utf8");
+
+// Terrence's own link (the root URL, no /w/<slug>) always resolves to this workspace,
+// so his existing goals/scans/meetings keep living at one stable address. Anyone else
+// gets a random slug in a /w/<slug> link that lazily creates its own isolated workspace
+// the moment they save a profile — no signup, no workspace-creation endpoint needed.
+const OWNER_WORKSPACE = process.env.OWNER_WORKSPACE || "main";
+
 function renderIndex(req, res) {
   const secret = process.env.APP_SHARED_SECRET || "";
-  const html = indexTemplate.replace(
-    "<head>",
-    `<head>\n<meta name="app-secret" content="${secret.replace(/"/g, "&quot;")}">`
-  );
+  const html = indexTemplate
+    .replace(
+      "<head>",
+      `<head>\n<meta name="app-secret" content="${secret.replace(/"/g, "&quot;")}">`
+    )
+    .replace(
+      "<head>",
+      `<head>\n<meta name="owner-workspace" content="${OWNER_WORKSPACE.replace(/"/g, "&quot;")}">`
+    );
   res.type("html").send(html);
 }
 
@@ -33,45 +45,61 @@ function requireAppSecret(req, res, next) {
   next();
 }
 
+// --- workspace scoping: every profile/scan/meeting row belongs to a workspace_id ---
+// (an unguessable slug from the /w/<slug> link, or OWNER_WORKSPACE for the root link).
+// The slug is a capability, not a login — same trust model as the shared secret above,
+// appropriate for a personal tool being handed to a few trusted people to try out.
+const WORKSPACE_ID_PATTERN = /^[a-z0-9-]{3,40}$/i;
+function resolveWorkspace(req, res, next) {
+  const raw = req.get("x-workspace-id");
+  const id = raw && WORKSPACE_ID_PATTERN.test(raw) ? raw : OWNER_WORKSPACE;
+  req.workspaceId = id;
+  next();
+}
+
 app.get("/health", (req, res) => res.json({ ok: true }));
 
-app.get("/api/profile", requireAppSecret, async (req, res, next) => {
+app.get("/api/profile", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
-    const { rows } = await query("SELECT * FROM profile WHERE id = 1");
+    const { rows } = await query("SELECT * FROM profile WHERE workspace_id = $1", [req.workspaceId]);
     res.json(rows[0] || null);
   } catch (err) { next(err); }
 });
 
-app.put("/api/profile", requireAppSecret, async (req, res, next) => {
+app.put("/api/profile", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
     const { name, role, goals, goalsDone } = req.body || {};
     const { rows } = await query(
-      `INSERT INTO profile (id, name, role, goals, goals_done, updated_at)
-       VALUES (1, $1, $2, $3::jsonb, $4::jsonb, now())
-       ON CONFLICT (id) DO UPDATE SET
+      `INSERT INTO profile (workspace_id, name, role, goals, goals_done, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, now())
+       ON CONFLICT (workspace_id) DO UPDATE SET
          name = EXCLUDED.name, role = EXCLUDED.role,
          goals = EXCLUDED.goals, goals_done = EXCLUDED.goals_done, updated_at = now()
        RETURNING *`,
-      [name || "", role || "", JSON.stringify(goals || []), JSON.stringify(goalsDone || {})]
+      [req.workspaceId, name || "", role || "", JSON.stringify(goals || []), JSON.stringify(goalsDone || {})]
     );
     res.json(rows[0]);
   } catch (err) { next(err); }
 });
 
-app.get("/api/scans", requireAppSecret, async (req, res, next) => {
+app.get("/api/scans", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
-    const { rows } = await query("SELECT * FROM scans ORDER BY created_at DESC LIMIT 200");
+    const { rows } = await query(
+      "SELECT * FROM scans WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 200",
+      [req.workspaceId]
+    );
     res.json(rows);
   } catch (err) { next(err); }
 });
 
-app.post("/api/scans", requireAppSecret, async (req, res, next) => {
+app.post("/api/scans", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
     const { name, confidence, orbs, note, score, scoreLabel, scoreReasons } = req.body || {};
     const { rows } = await query(
-      `INSERT INTO scans (name, confidence, orbs, note, score, score_label, score_reasons)
-       VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7) RETURNING *`,
+      `INSERT INTO scans (workspace_id, name, confidence, orbs, note, score, score_label, score_reasons)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8) RETURNING *`,
       [
+        req.workspaceId,
         name || "Unidentified vendor",
         confidence || "unknown",
         JSON.stringify(orbs || {}),
@@ -85,56 +113,60 @@ app.post("/api/scans", requireAppSecret, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-app.patch("/api/scans/:id", requireAppSecret, async (req, res, next) => {
+app.patch("/api/scans/:id", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
     const { note } = req.body || {};
     const { rows } = await query(
-      `UPDATE scans SET note = $1 WHERE id = $2 RETURNING *`,
-      [note || "", req.params.id]
+      `UPDATE scans SET note = $1 WHERE id = $2 AND workspace_id = $3 RETURNING *`,
+      [note || "", req.params.id, req.workspaceId]
     );
     if (!rows.length) return res.status(404).json({ error: "not_found" });
     res.json(rows[0]);
   } catch (err) { next(err); }
 });
 
-app.delete("/api/scans/:id", requireAppSecret, async (req, res, next) => {
+app.delete("/api/scans/:id", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
-    await query("DELETE FROM scans WHERE id = $1", [req.params.id]);
+    await query("DELETE FROM scans WHERE id = $1 AND workspace_id = $2", [req.params.id, req.workspaceId]);
     res.status(204).end();
   } catch (err) { next(err); }
 });
 
-app.post("/api/scan", requireAppSecret, upload.single("photo"), async (req, res, next) => {
+app.post("/api/scan", requireAppSecret, resolveWorkspace, upload.single("photo"), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "invalid_request", message: "no photo attached" });
     // Emblemic Score weighs the scan against the buyer's own stated goals, so pull
     // whatever's saved on the profile right now — no goals yet just means a lighter score.
-    const { rows } = await query("SELECT goals FROM profile WHERE id = 1");
+    const { rows } = await query("SELECT goals FROM profile WHERE workspace_id = $1", [req.workspaceId]);
     const goals = (rows[0] && rows[0].goals) || [];
     const result = await identifyVendor(req.file.buffer, req.file.mimetype || "image/jpeg", goals);
     res.json(result);
   } catch (err) { next(err); }
 });
 
-app.get("/api/meetings", requireAppSecret, async (req, res, next) => {
+app.get("/api/meetings", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
-    const { rows } = await query("SELECT * FROM meetings ORDER BY created_at DESC LIMIT 200");
+    const { rows } = await query(
+      "SELECT * FROM meetings WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 200",
+      [req.workspaceId]
+    );
     res.json(rows);
   } catch (err) { next(err); }
 });
 
-app.post("/api/meetings", requireAppSecret, async (req, res, next) => {
+app.post("/api/meetings", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
     const { who, company, meetingTime, status, note } = req.body || {};
     const { rows } = await query(
-      `INSERT INTO meetings (who, company, meeting_time, status, note) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [who || "", company || "", meetingTime || "", status || "requested", note || ""]
+      `INSERT INTO meetings (workspace_id, who, company, meeting_time, status, note)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [req.workspaceId, who || "", company || "", meetingTime || "", status || "requested", note || ""]
     );
     res.status(201).json(rows[0]);
   } catch (err) { next(err); }
 });
 
-app.patch("/api/meetings/:id", requireAppSecret, async (req, res, next) => {
+app.patch("/api/meetings/:id", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
     const { who, company, meetingTime, status, note } = req.body || {};
     const { rows } = await query(
@@ -142,17 +174,17 @@ app.patch("/api/meetings/:id", requireAppSecret, async (req, res, next) => {
          who = COALESCE($1, who), company = COALESCE($2, company),
          meeting_time = COALESCE($3, meeting_time), status = COALESCE($4, status),
          note = COALESCE($5, note)
-       WHERE id = $6 RETURNING *`,
-      [who, company, meetingTime, status, note, req.params.id]
+       WHERE id = $6 AND workspace_id = $7 RETURNING *`,
+      [who, company, meetingTime, status, note, req.params.id, req.workspaceId]
     );
     if (!rows.length) return res.status(404).json({ error: "not_found" });
     res.json(rows[0]);
   } catch (err) { next(err); }
 });
 
-app.delete("/api/meetings/:id", requireAppSecret, async (req, res, next) => {
+app.delete("/api/meetings/:id", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
-    await query("DELETE FROM meetings WHERE id = $1", [req.params.id]);
+    await query("DELETE FROM meetings WHERE id = $1 AND workspace_id = $2", [req.params.id, req.workspaceId]);
     res.status(204).end();
   } catch (err) { next(err); }
 });

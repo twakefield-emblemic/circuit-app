@@ -124,6 +124,13 @@
   }
   .event-chip .ev-name { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-faint); font-weight: 700; }
   .event-chip .ev-count { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .workspace-banner {
+    display: flex; align-items: center; gap: 6px;
+    padding: 7px 18px; font-size: 11px; font-weight: 600;
+    background: var(--surface-2); color: var(--ink-dim);
+    border-bottom: 1px solid var(--line); flex-shrink: 0;
+  }
+  .workspace-banner .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
   /* ---------- main / views ---------- */
   main { flex: 1; overflow-y: auto; padding: 18px 18px 100px; -webkit-overflow-scrolling: touch; }
@@ -578,6 +585,11 @@
     </div>
   </header>
 
+  <div class="workspace-banner" id="workspace-banner" hidden>
+    <span class="dot"></span>
+    <span>Preview workspace &mdash; your own sandbox, separate from Terrence's CoCreate data</span>
+  </div>
+
   <main>
 
     <!-- TODAY -->
@@ -787,6 +799,15 @@
   var metaTag = document.querySelector('meta[name="app-secret"]');
   var APP_SECRET = metaTag ? metaTag.content : "";
 
+  // Workspace: a /w/<slug> link is its own isolated copy of the app (own profile,
+  // goals, scans, meetings) — how this gets handed to a partner or a friend to try
+  // without touching Terrence's real CoCreate data. Visiting the plain root URL
+  // (no /w/<slug>) always resolves to the owner's own workspace instead.
+  var ownerMeta = document.querySelector('meta[name="owner-workspace"]');
+  var OWNER_WORKSPACE = ownerMeta ? ownerMeta.content : "main";
+  var workspaceMatch = window.location.pathname.match(/^\/w\/([a-z0-9-]{3,40})/i);
+  var WORKSPACE_ID = workspaceMatch ? workspaceMatch[1] : OWNER_WORKSPACE;
+
   var EVENT_START = new Date("2026-09-09T09:00:00-07:00");
   var EVENT_END   = new Date("2026-09-10T18:00:00-07:00");
   var GOAL_OPTIONS = [
@@ -969,7 +990,7 @@
 
   function api(path, opts) {
     opts = opts || {};
-    opts.headers = Object.assign({ "x-app-secret": APP_SECRET }, opts.headers || {});
+    opts.headers = Object.assign({ "x-app-secret": APP_SECRET, "x-workspace-id": WORKSPACE_ID }, opts.headers || {});
     return fetch(path, opts).then(function (res) {
       if (!res.ok) {
         return res.json().catch(function () { return {}; }).then(function (body) {
@@ -1712,6 +1733,7 @@
 
   // ---------------- init ----------------
   function init() {
+    if (WORKSPACE_ID !== OWNER_WORKSPACE) $("workspace-banner").hidden = false;
     renderScanIdle();
     renderAskChips();
     renderLog();
