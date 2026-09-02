@@ -4,7 +4,7 @@ const path = require("path");
 const express = require("express");
 const multer = require("multer");
 const { query, initDb } = require("./db");
-const { identifyVendor, askQuestion } = require("./lib/claude");
+const { identifyVendor, askQuestion, draftMeetingMessage, draftSocialCaption } = require("./lib/claude");
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
@@ -207,6 +207,64 @@ app.delete("/api/meetings/:id", requireAppSecret, resolveWorkspace, async (req, 
   try {
     await query("DELETE FROM meetings WHERE id = $1 AND workspace_id = $2", [req.params.id, req.workspaceId]);
     res.status(204).end();
+  } catch (err) { next(err); }
+});
+
+// Community posts are a single shared feed across every Circuit workspace (Terrence,
+// his partner's link, his friend's link, etc.) — deliberately the opposite of the
+// isolation model used everywhere else above. GET has no workspace filtering at all;
+// resolveWorkspace on POST/DELETE is only for attribution and delete-your-own-post,
+// same trust model as the rest of the app (the slug is a capability, not a login).
+app.get("/api/community-posts", requireAppSecret, async (req, res, next) => {
+  try {
+    const { rows } = await query("SELECT * FROM community_posts ORDER BY created_at DESC LIMIT 100");
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+app.post("/api/community-posts", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    const text = String((req.body && req.body.text) || "").trim();
+    if (!text) return res.status(400).json({ error: "invalid_request", message: "text is required" });
+    const author = String((req.body && req.body.author) || "").trim().slice(0, 60);
+    const { rows } = await query(
+      `INSERT INTO community_posts (workspace_id, author, text) VALUES ($1, $2, $3) RETURNING *`,
+      [req.workspaceId, author, text.slice(0, 500)]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+app.delete("/api/community-posts/:id", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    await query(
+      "DELETE FROM community_posts WHERE id = $1 AND workspace_id = $2",
+      [req.params.id, req.workspaceId]
+    );
+    res.status(204).end();
+  } catch (err) { next(err); }
+});
+
+// AI-drafted meeting-request message for the home screen's "+ Meeting" flow — grounded in
+// whatever's already known about this company (a real scan's score/context, or just
+// category/tagline for a pre-scan suggestion) plus the buyer's own saved goals.
+app.post("/api/meeting-message", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    const company = String((req.body && req.body.company) || "").trim();
+    if (!company) return res.status(400).json({ error: "invalid_request", message: "company is required" });
+    const { rows } = await query("SELECT name, role, goals FROM profile WHERE workspace_id = $1", [req.workspaceId]);
+    const text = await draftMeetingMessage(company, (req.body && req.body.context) || {}, rows[0] || null);
+    res.json({ text });
+  } catch (err) { next(err); }
+});
+
+// AI-drafted caption for the Instagram/Facebook share-sheet composer in Event > Community.
+app.post("/api/social-caption", requireAppSecret, async (req, res, next) => {
+  try {
+    const platform = (req.body && req.body.platform) || "instagram";
+    const note = String((req.body && req.body.note) || "").trim();
+    const text = await draftSocialCaption(platform, note);
+    res.json({ text });
   } catch (err) { next(err); }
 });
 

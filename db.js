@@ -96,6 +96,22 @@ async function initDb() {
   `);
   await query(`ALTER TABLE meetings ADD COLUMN IF NOT EXISTS workspace_id TEXT NOT NULL DEFAULT 'main';`);
   await query(`CREATE INDEX IF NOT EXISTS idx_meetings_workspace_created ON meetings (workspace_id, created_at DESC);`);
+
+  // Community posts are deliberately NOT workspace-isolated like everything else above —
+  // this is a single shared feed visible to anyone with any Circuit link (Terrence, his
+  // partner's workspace, his friend's workspace, etc.), standing in for a real tradeshow
+  // community feature Circuit has no access to. workspace_id is kept only for attribution
+  // (who can delete their own post), never used to filter what a reader sees.
+  await query(`
+    CREATE TABLE IF NOT EXISTS community_posts (
+      id SERIAL PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      author TEXT NOT NULL DEFAULT '',
+      text TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_community_posts_created ON community_posts (created_at DESC);`);
 }
 
 module.exports = { query, initDb, pool };

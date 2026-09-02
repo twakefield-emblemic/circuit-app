@@ -258,7 +258,9 @@
 
   /* community */
   .comm-links { display: flex; flex-direction: column; gap: 8px; }
+  .comm-link-row { display: flex; align-items: center; gap: 8px; }
   .comm-link {
+    flex: 1; min-width: 0;
     display: flex; align-items: center; gap: 10px;
     background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
     padding: 10px 12px; text-decoration: none; color: inherit;
@@ -270,6 +272,22 @@
   .comm-link .cl-text { flex: 1; min-width: 0; }
   .comm-link .cl-name { display: block; font-weight: 600; font-size: 13.5px; }
   .comm-link .cl-sub { display: block; font-size: 11.5px; color: var(--ink-faint); margin-top: 1px; }
+  .comm-post-btn {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: var(--accent); color: var(--accent-ink); border: none; cursor: pointer;
+    font-size: 19px; font-weight: 700; font-family: inherit; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  /* tradeshow community feed (shared across all Circuit workspaces) */
+  .comm-post-list { display: flex; flex-direction: column; gap: 8px; }
+  .comm-post {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  }
+  .comm-post-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .comm-post-author { font-weight: 700; font-size: 13px; }
+  .comm-post-time { font-size: 11px; color: var(--ink-faint); font-family: "Space Mono", monospace; flex-shrink: 0; }
+  .comm-post-text { font-size: 13.5px; color: var(--ink); margin-top: 4px; line-height: 1.45; white-space: pre-wrap; }
 
   /* top matches */
   .match-row {
@@ -532,6 +550,27 @@
   #onboard .field { margin-bottom: 16px; }
   #onboard .ob-actions { margin-top: 8px; }
 
+  /* ---------- generic overlay sheet (social composer / meeting request) ---------- */
+  .sheet-overlay {
+    position: absolute; inset: 0; background: var(--surface); z-index: 25;
+    display: flex; flex-direction: column; padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+  .sheet-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .sheet-head h2 { font-size: 19px; font-weight: 800; letter-spacing: -.01em; margin: 0; }
+  .sheet-close {
+    background: var(--surface-2); border: none; color: var(--ink-dim); width: 30px; height: 30px;
+    border-radius: 50%; font-size: 18px; line-height: 1; cursor: pointer; flex-shrink: 0; font-family: inherit;
+  }
+  .sheet-overlay .field { margin-bottom: 16px; }
+  .sheet-overlay .scan-stage { margin-bottom: 16px; }
+  .sheet-overlay .preview { width: 100%; max-width: 100%; border-radius: 12px; display: block; margin-bottom: 16px; }
+  .ai-draft-btn {
+    background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 700;
+    cursor: pointer; padding: 7px 0 0; font-family: inherit;
+  }
+  .ai-draft-btn[disabled] { opacity: .5; cursor: default; }
+
   /* ---------- bottom nav ---------- */
   nav.tabbar {
     position: absolute; left: 0; right: 0; bottom: 0;
@@ -617,6 +656,9 @@
       <button class="btn btn-primary" id="ob-submit">Start using Circuit</button>
     </div>
   </div>
+
+  <div class="sheet-overlay" id="social-composer" hidden></div>
+  <div class="sheet-overlay" id="meeting-composer" hidden></div>
 
   <header class="topbar">
     <div class="brand">
@@ -775,6 +817,18 @@
           <div class="comm-links" id="comm-links"></div>
           <div class="caveat">Hashtag #CoCreate2026</div>
         </div>
+
+        <div>
+          <div class="eyebrow">Tradeshow community</div>
+          <div class="card">
+            <div class="caveat" style="margin:0 0 10px;">Visible to anyone you've shared a Circuit link with &mdash; not the official CoCreate LA app.</div>
+            <textarea id="comm-post-text" rows="2" placeholder="Share something with the group&hellip;"></textarea>
+            <div class="btn-row" style="margin-top:10px;">
+              <button class="btn btn-primary" id="comm-post-send">Post</button>
+            </div>
+          </div>
+          <div id="comm-feed" style="margin-top:10px;"></div>
+        </div>
       </div>
 
       <div class="event-subview" id="event-wrapup">
@@ -911,11 +965,12 @@
   };
 
   var COMMUNITY_LINKS = [
-    { icon: "📷", name: "Instagram", sub: "@alibaba.com_official", url: "https://www.instagram.com/alibaba.com_official/" },
-    { icon: "👥", name: "Facebook", sub: "Alibaba.com Global", url: "https://www.facebook.com/Alibaba.comGlobal/" },
+    { icon: "📷", name: "Instagram", sub: "@alibaba.com_official", url: "https://www.instagram.com/alibaba.com_official/", social: "instagram" },
+    { icon: "👥", name: "Facebook", sub: "Alibaba.com Global", url: "https://www.facebook.com/Alibaba.comGlobal/", social: "facebook" },
     { icon: "🌐", name: "Event site", sub: "alibabacocreate.com", url: "https://www.alibabacocreate.com/us" },
     { icon: "✉️", name: "Event team", sub: "cocreate@service.alibaba.com", url: "mailto:cocreate@service.alibaba.com" }
   ];
+  var EVENT_HASHTAG = "#CoCreate2026";
 
   // Real suppliers featured on the official CoCreate LA 2026 site (alibabacocreate.com/us/suppliers),
   // captured by hand since the site doesn't expose company names as text (only as logo images) —
@@ -1334,14 +1389,183 @@
   // ---------------- Community ----------------
   function renderCommunity() {
     $("comm-links").innerHTML = COMMUNITY_LINKS.map(function (l) {
-      return '<a class="comm-link" href="' + l.url + '" target="_blank" rel="noopener noreferrer">' +
-        '<span class="cl-icon">' + l.icon + '</span>' +
-        '<span class="cl-text"><span class="cl-name">' + escapeHtml(l.name) + '</span>' +
-        '<span class="cl-sub"> ' + escapeHtml(l.sub) + '</span></span></a>';
+      var postBtn = l.social
+        ? '<button class="comm-post-btn" data-social="' + l.social + '" aria-label="Post to ' + escapeHtml(l.name) + '">+</button>'
+        : "";
+      return '<div class="comm-link-row">' +
+        '<a class="comm-link" href="' + l.url + '" target="_blank" rel="noopener noreferrer">' +
+          '<span class="cl-icon">' + l.icon + '</span>' +
+          '<span class="cl-text"><span class="cl-name">' + escapeHtml(l.name) + '</span>' +
+          '<span class="cl-sub"> ' + escapeHtml(l.sub) + '</span></span></a>' +
+        postBtn +
+      '</div>';
     }).join("");
+    Array.prototype.forEach.call($("comm-links").querySelectorAll(".comm-post-btn"), function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        openSocialComposer(btn.dataset.social);
+      });
+    });
   }
 
+  // ---------------- Instagram/Facebook share-sheet composer ----------------
+  // There's no public, reliable way for a web page to deep-link straight into Instagram's
+  // or Facebook's native camera with a pre-filled caption — both platforms deliberately
+  // block pre-filled captions on their share intents to cut down on spam, even for native
+  // apps using their own SDKs. The honest, real version of this: take/choose a photo here,
+  // draft a caption with the hashtag already on it, then hand off to the OS share sheet
+  // (Web Share API) so the user picks Instagram or Facebook themselves — with the caption
+  // also copied to the clipboard first, since the platform is likely to drop it.
+  var socialComposerPlatform = null;
+  var socialComposerFile = null;
+
+  function openSocialComposer(platform) {
+    socialComposerPlatform = platform;
+    socialComposerFile = null;
+    renderSocialComposer();
+    $("social-composer").hidden = false;
+  }
+  function closeSocialComposer() {
+    $("social-composer").hidden = true;
+    socialComposerFile = null;
+  }
+  function defaultCaption() {
+    return "Great conversations at CoCreate LA 2026 " + EVENT_HASHTAG;
+  }
+  function renderSocialComposer() {
+    var platformName = socialComposerPlatform === "facebook" ? "Facebook" : "Instagram";
+    var stageHtml = socialComposerFile
+      ? '<img class="preview" id="sc-preview-img" alt="Photo to share">' +
+        '<div class="btn-row" style="margin-bottom:16px;"><button class="btn btn-ghost" id="sc-retake">Retake</button></div>'
+      : '<div class="scan-stage">' +
+          '<button class="camera-btn" id="sc-camera-btn">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2"/><circle cx="12" cy="12" r="3.5"/></svg>' +
+          '</button>' +
+          '<div class="hint">Take or choose a photo for ' + escapeHtml(platformName) + ' (optional).</div>' +
+        '</div>';
+
+    $("social-composer").innerHTML =
+      '<div class="sheet-head"><h2>Post to ' + escapeHtml(platformName) + '</h2>' +
+        '<button class="sheet-close" id="sc-close" aria-label="Close">&times;</button></div>' +
+      stageHtml +
+      '<input type="file" id="sc-file-input" accept="image/*" capture="environment" hidden>' +
+      '<div class="field">' +
+        '<label class="field-label" for="sc-caption">Caption</label>' +
+        '<textarea id="sc-caption" rows="3"></textarea>' +
+        '<button class="ai-draft-btn" id="sc-draft-ai">&#10024; Draft with AI</button>' +
+      '</div>' +
+      '<div class="caveat" style="margin-bottom:16px;">Opens your device\'s share sheet so you can pick ' + escapeHtml(platformName) + ' and post from there. ' + escapeHtml(platformName) + ' doesn\'t accept a pre-filled caption, so it\'s copied to your clipboard first &mdash; just paste it in.</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn btn-ghost" id="sc-copy">Copy caption</button>' +
+        '<button class="btn btn-primary" id="sc-share">Share photo</button>' +
+      '</div>';
+
+    $("sc-caption").value = defaultCaption();
+    $("sc-close").addEventListener("click", closeSocialComposer);
+
+    if (socialComposerFile) {
+      $("sc-preview-img").src = URL.createObjectURL(socialComposerFile);
+      $("sc-retake").addEventListener("click", function () { socialComposerFile = null; renderSocialComposer(); });
+    } else {
+      var input = $("sc-file-input");
+      $("sc-camera-btn").addEventListener("click", function () { input.click(); });
+      input.addEventListener("change", function () {
+        if (input.files && input.files[0]) { socialComposerFile = input.files[0]; renderSocialComposer(); }
+      });
+    }
+
+    $("sc-draft-ai").addEventListener("click", function () {
+      var btn = $("sc-draft-ai");
+      btn.disabled = true;
+      btn.textContent = "Drafting…";
+      api("/api/social-caption", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ platform: socialComposerPlatform }) })
+        .then(function (data) {
+          $("sc-caption").value = ((data.text || "").trim() + " " + EVENT_HASHTAG).trim();
+        })
+        .catch(function () { toast("Couldn't draft a caption — try again."); })
+        .then(function () {
+          if (!$("sc-draft-ai")) return;
+          $("sc-draft-ai").disabled = false;
+          $("sc-draft-ai").innerHTML = "&#10024; Draft with AI";
+        });
+    });
+
+    $("sc-copy").addEventListener("click", function () {
+      copyToClipboard($("sc-caption").value, "Caption copied");
+    });
+
+    $("sc-share").addEventListener("click", function () {
+      var text = $("sc-caption").value;
+      if (!socialComposerFile && !text.trim()) { toast("Add a photo or caption first"); return; }
+      var doShare = function () {
+        if (!navigator.share) {
+          toast("Sharing isn't supported here — caption copied, save the photo and post manually.");
+          return;
+        }
+        var shareData = { text: text };
+        if (socialComposerFile && (!navigator.canShare || navigator.canShare({ files: [socialComposerFile] }))) {
+          shareData.files = [socialComposerFile];
+        }
+        navigator.share(shareData).catch(function () { /* user cancelled — not an error */ });
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(doShare).catch(doShare);
+      } else {
+        doShare();
+      }
+    });
+  }
+
+  function copyToClipboard(text, okMsg) {
+    if (!text || !text.trim()) { toast("Nothing to copy yet"); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast(okMsg); })
+        .catch(function () { toast("Couldn't copy — select and copy manually."); });
+    } else {
+      toast("Couldn't copy — select and copy manually.");
+    }
+  }
+
+  // ---------------- Tradeshow community feed (shared across all Circuit workspaces) ----------------
+  var communityPosts = [];
+  function loadCommunityPosts() {
+    return api("/api/community-posts").then(function (rows) { communityPosts = rows || []; renderCommunityFeed(); })
+      .catch(function () { /* leave whatever's already rendered */ });
+  }
+  function renderCommunityFeed() {
+    var box = $("comm-feed");
+    if (!communityPosts.length) {
+      box.innerHTML = '<div class="empty-note">No posts yet — be the first to share something with the group.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="comm-post-list">' + communityPosts.map(function (p) {
+      return '<div class="comm-post">' +
+        '<div class="comm-post-head"><span class="comm-post-author">' + escapeHtml(p.author || "Someone at CoCreate") + '</span>' +
+        '<span class="comm-post-time">' + fmtTime(p.created_at) + '</span></div>' +
+        '<div class="comm-post-text">' + escapeHtml(p.text || "") + '</div>' +
+      '</div>';
+    }).join("") + '</div>';
+  }
+  $("comm-post-send").addEventListener("click", function () {
+    var text = $("comm-post-text").value.trim();
+    if (!text) { toast("Write something first"); return; }
+    var author = (profile && profile.name) || "Someone at CoCreate";
+    api("/api/community-posts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ author: author, text: text }) })
+      .then(function (created) {
+        communityPosts.unshift(created);
+        renderCommunityFeed();
+        $("comm-post-text").value = "";
+        toast("Posted");
+      })
+      .catch(function () { toast("Couldn't post — check your connection and try again."); });
+  });
+
   // ---------------- Top Matches ----------------
+  // Parallel array to whatever's currently rendered in #match-row — carries the actual
+  // score/scan context (or category/tagline for a pre-scan supplier suggestion) that the
+  // "+ Meeting" button needs to hand to the AI meeting-message drafter.
+  var matchRowContext = [];
+
   function renderTopMatches() {
     var box = $("match-row");
     var eyebrow = $("match-eyebrow");
@@ -1352,7 +1576,16 @@
       var top = scans.slice()
         .sort(function (a, b) { return (Number(b.score) || -1) - (Number(a.score) || -1); })
         .slice(0, 5);
-      box.innerHTML = top.map(function (s) {
+      matchRowContext = top.map(function (s) {
+        var scoreVal = Number(s.score);
+        return {
+          kind: "scan", name: s.name || "Unknown vendor",
+          score: Number.isFinite(scoreVal) ? scoreVal : null,
+          scoreLabel: s.score_label || "", scoreReasons: s.score_reasons || "",
+          product: (s.orbs && s.orbs.product) || "", whyFollowUp: (s.orbs && s.orbs.why_follow_up) || ""
+        };
+      });
+      box.innerHTML = top.map(function (s, i) {
         var scoreVal = Number(s.score);
         var initials = (s.name || "?").trim().slice(0, 2).toUpperCase();
         return '<div class="match-card">' +
@@ -1360,7 +1593,7 @@
           '<div class="match-tag">' + (Number.isFinite(scoreVal) ? scoreVal + "% match" : "Scanned") + '</div>' +
           '<div class="match-name">' + escapeHtml(s.name || "Unknown vendor") + '</div>' +
           '<div class="match-sub">' + escapeHtml((s.orbs && s.orbs.product) || s.score_label || "") + '</div>' +
-          '<button class="match-meet" data-company="' + escapeHtml(s.name || "") + '">+ Meeting</button>' +
+          '<button class="match-meet" data-idx="' + i + '">+ Meeting</button>' +
         '</div>';
       }).join("");
     } else {
@@ -1371,33 +1604,121 @@
         ? "From the 200+ suppliers featured on the official CoCreate LA site, matched to your goals"
         : "A few of the 200+ suppliers featured on the official CoCreate LA site — set your goals for a personalized pick";
       var picks = topSupplierMatches(goals, 5);
-      box.innerHTML = picks.map(function (s) {
+      matchRowContext = picks.map(function (s) {
+        return { kind: "supplier", name: s.name, category: s.category, tagline: s.tagline };
+      });
+      box.innerHTML = picks.map(function (s, i) {
         var initials = s.name.trim().slice(0, 2).toUpperCase();
         return '<div class="match-card">' +
           '<div class="match-badge">' + escapeHtml(initials) + '</div>' +
           '<div class="match-tag">' + escapeHtml(s.category) + '</div>' +
           '<div class="match-name">' + escapeHtml(s.name) + '</div>' +
           '<div class="match-sub">' + escapeHtml(s.tagline) + '</div>' +
-          '<button class="match-meet" data-company="' + escapeHtml(s.name) + '">+ Meeting</button>' +
+          '<button class="match-meet" data-idx="' + i + '">+ Meeting</button>' +
         '</div>';
       }).join("");
     }
     Array.prototype.forEach.call(box.querySelectorAll(".match-meet"), function (btn) {
-      btn.addEventListener("click", function () { openMeetingFormFor(btn.dataset.company); });
+      btn.addEventListener("click", function () { openMeetingRequest(matchRowContext[Number(btn.dataset.idx)]); });
     });
   }
 
-  function openMeetingFormFor(company) {
-    switchTab("today");
-    $("meet-form-card").hidden = false;
-    $("meet-company").value = company || "";
-    $("meet-who").value = "";
-    $("meet-time").value = "";
-    $("meet-note").value = "";
-    setTimeout(function () {
-      $("meet-form-card").scrollIntoView({ behavior: "smooth", block: "center" });
-      $("meet-who").focus();
-    }, 50);
+  // ---------------- AI-drafted meeting-request composer ----------------
+  // Circuit has no way to actually message a vendor in-app — they're not Circuit users —
+  // so this drafts a specific, grounded outreach message and hands it off two honest ways:
+  // copy it to send wherever you'd really reach them, or open a search for the company on
+  // Alibaba itself. There's no per-supplier storefront URL in the directory data, so this
+  // is a real Alibaba search link, not a claimed direct match to their storefront.
+  var meetingRequestContext = null;
+
+  function alibabaSearchUrl(company) {
+    return "https://www.alibaba.com/trade/search?SearchText=" + encodeURIComponent(company || "");
+  }
+
+  function openMeetingRequest(context) {
+    meetingRequestContext = context || {};
+    renderMeetingRequest();
+    $("meeting-composer").hidden = false;
+    draftMeetingMessageNow();
+  }
+  function closeMeetingRequest() {
+    $("meeting-composer").hidden = true;
+  }
+
+  function renderMeetingRequest() {
+    var ctx = meetingRequestContext || {};
+    var scoreLine = (ctx.kind === "scan" && Number.isFinite(ctx.score))
+      ? '<div class="caveat" style="margin:0 0 16px;">' + ctx.score + '% match' + (ctx.scoreLabel ? " — " + escapeHtml(ctx.scoreLabel) : "") + '</div>'
+      : "";
+
+    $("meeting-composer").innerHTML =
+      '<div class="sheet-head"><h2>Request a meeting</h2>' +
+        '<button class="sheet-close" id="mr-close" aria-label="Close">&times;</button></div>' +
+      '<div class="field">' +
+        '<label class="field-label" for="mr-company">Company</label>' +
+        '<input type="text" id="mr-company" value="' + escapeHtml(ctx.name || "") + '">' +
+      '</div>' +
+      scoreLine +
+      '<div class="field">' +
+        '<label class="field-label" for="mr-who">Contact (optional)</label>' +
+        '<input type="text" id="mr-who" placeholder="e.g. Mei Chen, if you know who to ask for">' +
+      '</div>' +
+      '<div class="field">' +
+        '<label class="field-label" for="mr-message">Message</label>' +
+        '<div id="mr-thinking" class="thinking"><span class="spinner"></span> Drafting a message&hellip;</div>' +
+        '<textarea id="mr-message" rows="5" hidden></textarea>' +
+      '</div>' +
+      '<div class="btn-row" style="margin-bottom:10px;">' +
+        '<button class="btn btn-ghost" id="mr-copy">Copy message</button>' +
+        '<button class="btn btn-ghost" id="mr-alibaba">Find on Alibaba</button>' +
+      '</div>' +
+      '<div class="caveat" style="margin-bottom:16px;">Circuit can\'t message vendors directly — they\'re not Circuit users. Copy the message and send it wherever you\'d actually reach them (Alibaba chat, the booth, email). "Find on Alibaba" opens a search for this company\'s name, not a confirmed direct link.</div>' +
+      '<button class="btn btn-primary" id="mr-save" disabled>Save as meeting request</button>';
+
+    $("mr-close").addEventListener("click", closeMeetingRequest);
+    $("mr-alibaba").addEventListener("click", function () {
+      window.open(alibabaSearchUrl($("mr-company").value.trim()), "_blank", "noopener,noreferrer");
+    });
+    $("mr-copy").addEventListener("click", function () {
+      copyToClipboard($("mr-message").value, "Message copied");
+    });
+    $("mr-save").addEventListener("click", function () {
+      var company = $("mr-company").value.trim();
+      if (!company) { toast("Add a company name"); return; }
+      var whoInput = $("mr-who").value.trim();
+      var body = {
+        who: whoInput || company, company: whoInput ? company : "",
+        meetingTime: "", note: $("mr-message").value.trim(), status: "requested"
+      };
+      api("/api/meetings", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
+        .then(function (created) {
+          meetings.unshift(created);
+          renderMeetings();
+          closeMeetingRequest();
+          toast("Meeting request saved");
+        })
+        .catch(function () { toast("Couldn't save — check your connection and try again."); });
+    });
+  }
+
+  function draftMeetingMessageNow() {
+    var ctx = meetingRequestContext || {};
+    api("/api/meeting-message", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ company: ctx.name, context: ctx })
+    }).then(function (data) {
+      if (!$("mr-message")) return; // sheet was closed before this resolved
+      $("mr-message").value = data.text || "";
+      $("mr-message").hidden = false;
+      $("mr-thinking").hidden = true;
+      $("mr-save").disabled = false;
+    }).catch(function () {
+      if (!$("mr-message")) return;
+      $("mr-message").hidden = false;
+      $("mr-thinking").hidden = true;
+      $("mr-save").disabled = false;
+      toast("Couldn't draft a message — write your own or try again.");
+    });
   }
 
   // ---------------- Supplier directory ----------------
@@ -1436,6 +1757,7 @@
       v.classList.toggle("active", v.id === "event-" + name);
     });
     if (name === "wrapup") renderWrapUp();
+    if (name === "community") loadCommunityPosts();
   }
   Array.prototype.forEach.call(document.querySelectorAll(".event-subtab"), function (b) {
     b.addEventListener("click", function () { switchEventTab(b.dataset.eventTab); });
@@ -1830,6 +2152,7 @@
     renderScheduleDays();
     renderSchedule();
     renderCommunity();
+    loadCommunityPosts();
     renderAgendaTilePreview();
     updateCountdown();
     setInterval(updateCountdown, 60000);
