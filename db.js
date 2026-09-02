@@ -26,6 +26,11 @@ async function initDb() {
     );
   `);
 
+  // LinkedIn / company context for the Emblemic Score — added after profile already
+  // existed in production, so additive columns rather than part of the CREATE TABLE.
+  await query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS linkedin_url TEXT DEFAULT '';`);
+  await query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS company_name TEXT DEFAULT '';`);
+
   // Migration for a profile table from before workspaces existed (single row,
   // "id INTEGER PRIMARY KEY DEFAULT 1" instead of workspace_id) — the CREATE TABLE
   // above no-ops against a table that already exists, so the old shape needs to be

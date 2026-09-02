@@ -68,15 +68,26 @@ app.get("/api/profile", requireAppSecret, resolveWorkspace, async (req, res, nex
 
 app.put("/api/profile", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
-    const { name, role, goals, goalsDone } = req.body || {};
+    const body = req.body || {};
+    // The frontend's in-memory profile object mirrors what GET returns (snake_case,
+    // straight from Postgres column names) rather than camelCase — accept both here
+    // so a save never silently drops a field it received under the "other" spelling.
+    const { name, role, goals } = body;
+    const goalsDone = body.goals_done !== undefined ? body.goals_done : body.goalsDone;
+    const linkedinUrl = body.linkedin_url !== undefined ? body.linkedin_url : body.linkedinUrl;
+    const companyName = body.company_name !== undefined ? body.company_name : body.companyName;
     const { rows } = await query(
-      `INSERT INTO profile (workspace_id, name, role, goals, goals_done, updated_at)
-       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, now())
+      `INSERT INTO profile (workspace_id, name, role, goals, goals_done, linkedin_url, company_name, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, now())
        ON CONFLICT (workspace_id) DO UPDATE SET
          name = EXCLUDED.name, role = EXCLUDED.role,
-         goals = EXCLUDED.goals, goals_done = EXCLUDED.goals_done, updated_at = now()
+         goals = EXCLUDED.goals, goals_done = EXCLUDED.goals_done,
+         linkedin_url = EXCLUDED.linkedin_url, company_name = EXCLUDED.company_name, updated_at = now()
        RETURNING *`,
-      [req.workspaceId, name || "", role || "", JSON.stringify(goals || []), JSON.stringify(goalsDone || {})]
+      [
+        req.workspaceId, name || "", role || "", JSON.stringify(goals || []), JSON.stringify(goalsDone || {}),
+        linkedinUrl || "", companyName || "",
+      ]
     );
     res.json(rows[0]);
   } catch (err) { next(err); }
@@ -135,11 +146,21 @@ app.delete("/api/scans/:id", requireAppSecret, resolveWorkspace, async (req, res
 app.post("/api/scan", requireAppSecret, resolveWorkspace, upload.single("photo"), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "invalid_request", message: "no photo attached" });
-    // Emblemic Score weighs the scan against the buyer's own stated goals, so pull
-    // whatever's saved on the profile right now — no goals yet just means a lighter score.
-    const { rows } = await query("SELECT goals FROM profile WHERE workspace_id = $1", [req.workspaceId]);
+    // Emblemic Score weighs the scan against the buyer's own stated goals (and, if
+    // provided, their LinkedIn/company for a two-sided read) — pull whatever's saved
+    // on the profile right now. Missing goals or LinkedIn/company just means a lighter,
+    // vendor-only score, same as before this field existed.
+    const { rows } = await query(
+      "SELECT goals, linkedin_url, company_name FROM profile WHERE workspace_id = $1",
+      [req.workspaceId]
+    );
     const goals = (rows[0] && rows[0].goals) || [];
-    const result = await identifyVendor(req.file.buffer, req.file.mimetype || "image/jpeg", goals);
+    const linkedinUrl = (rows[0] && rows[0].linkedin_url) || "";
+    const companyName = (rows[0] && rows[0].company_name) || "";
+    const result = await identifyVendor(req.file.buffer, req.file.mimetype || "image/jpeg", goals, {
+      linkedinUrl,
+      companyName,
+    });
     res.json(result);
   } catch (err) { next(err); }
 });

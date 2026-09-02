@@ -497,6 +497,30 @@
   .field { display: flex; flex-direction: column; gap: 6px; }
   .goal-picker { display: flex; flex-wrap: wrap; gap: 7px; }
 
+  /* ---------- context card (LinkedIn / company, for the Emblemic Score) ---------- */
+  .context-card {
+    border: 1.5px solid var(--line-strong); border-radius: 14px; background: var(--surface);
+    overflow: hidden;
+  }
+  .context-card-head {
+    display: flex; align-items: flex-start; gap: 12px; width: 100%;
+    padding: 13px 14px; background: none; border: none; text-align: left; cursor: pointer;
+    font-family: inherit;
+  }
+  .context-card-icon {
+    width: 34px; height: 34px; border-radius: 50%; background: #0A66C2; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 800;
+    font-size: 14px; flex-shrink: 0; letter-spacing: -.02em;
+  }
+  .context-card-text { flex: 1; }
+  .context-card-title { font-size: 14.5px; font-weight: 700; }
+  .context-card-sub { font-size: 12.5px; color: var(--ink-dim); line-height: 1.4; margin-top: 2px; }
+  .context-card-chev { color: var(--ink-faint); flex-shrink: 0; margin-top: 4px; transition: transform .15s; }
+  .context-card.open .context-card-chev { transform: rotate(90deg); }
+  .context-card-body { display: none; padding: 0 14px 14px; flex-direction: column; gap: 12px; }
+  .context-card.open .context-card-body { display: flex; }
+  .context-card-note { font-size: 11.5px; color: var(--ink-faint); line-height: 1.45; }
+
   /* ---------- onboarding ---------- */
   #onboard {
     position: absolute; inset: 0; background: var(--surface); z-index: 20;
@@ -556,6 +580,29 @@
     <div class="field">
       <label class="field-label" for="ob-role">Role &amp; company</label>
       <input type="text" id="ob-role" placeholder="e.g. Founder, Emblemic" autocomplete="off">
+    </div>
+    <div class="field">
+      <div class="context-card" id="ob-linkedin-card">
+        <button type="button" class="context-card-head" id="ob-linkedin-toggle">
+          <div class="context-card-icon">in</div>
+          <div class="context-card-text">
+            <div class="context-card-title">Add your LinkedIn (optional)</div>
+            <div class="context-card-sub">Paste your public profile link so the Emblemic Score can weigh your own background, not just the vendor's.</div>
+          </div>
+          <svg class="context-card-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <div class="context-card-body">
+          <div class="field">
+            <label class="field-label" for="ob-linkedin-url">LinkedIn profile URL</label>
+            <input type="text" id="ob-linkedin-url" placeholder="linkedin.com/in/yourname" autocomplete="off">
+          </div>
+          <div class="field">
+            <label class="field-label" for="ob-company-name">Company / website</label>
+            <input type="text" id="ob-company-name" placeholder="e.g. Emblemic.ai" autocomplete="off">
+          </div>
+          <div class="context-card-note">Claude reads whatever's publicly visible at these links during each scan &mdash; not a real LinkedIn login, just a search, the same way it already looks up vendors.</div>
+        </div>
+      </div>
     </div>
     <div class="field">
       <label class="field-label">Why you're going — pick what applies</label>
@@ -747,6 +794,29 @@
       <div class="field">
         <label class="field-label" for="me-role">Role &amp; company</label>
         <input type="text" id="me-role" autocomplete="off">
+      </div>
+      <div class="field">
+        <div class="context-card" id="me-linkedin-card">
+          <button type="button" class="context-card-head" id="me-linkedin-toggle">
+            <div class="context-card-icon">in</div>
+            <div class="context-card-text">
+              <div class="context-card-title">LinkedIn &amp; company</div>
+              <div class="context-card-sub">Optional &mdash; factors your own background into the Emblemic Score on every scan.</div>
+            </div>
+            <svg class="context-card-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+          </button>
+          <div class="context-card-body">
+            <div class="field">
+              <label class="field-label" for="me-linkedin-url">LinkedIn profile URL</label>
+              <input type="text" id="me-linkedin-url" placeholder="linkedin.com/in/yourname" autocomplete="off">
+            </div>
+            <div class="field">
+              <label class="field-label" for="me-company-name">Company / website</label>
+              <input type="text" id="me-company-name" placeholder="e.g. Emblemic.ai" autocomplete="off">
+            </div>
+            <div class="context-card-note">Claude reads whatever's publicly visible at these links during each scan &mdash; not a real LinkedIn login, just a search, the same way it already looks up vendors.</div>
+          </div>
+        </div>
       </div>
       <div class="field">
         <label class="field-label">Goals for the show</label>
@@ -1663,13 +1733,30 @@
     $("me-name").value = (profile && profile.name) || "";
     $("me-role").value = (profile && profile.role) || "";
     $("me-goal-custom").value = "";
+    var linkedinUrl = (profile && profile.linkedin_url) || "";
+    var companyName = (profile && profile.company_name) || "";
+    $("me-linkedin-url").value = linkedinUrl;
+    $("me-company-name").value = companyName;
+    // If either was already saved, open the card by default so editing it isn't
+    // hidden behind an extra tap — otherwise leave it collapsed like a fresh profile.
+    $("me-linkedin-card").classList.toggle("open", !!(linkedinUrl || companyName));
     buildGoalPicker($("me-goal-picker"), (profile && profile.goals) || []);
   }
+
+  $("me-linkedin-toggle").addEventListener("click", function () {
+    $("me-linkedin-card").classList.toggle("open");
+  });
+  $("ob-linkedin-toggle").addEventListener("click", function () {
+    $("ob-linkedin-card").classList.toggle("open");
+  });
 
   $("me-save").addEventListener("click", function () {
     var goals = readGoalPicker($("me-goal-picker"), $("me-goal-custom"));
     var prevDone = (profile && profile.goals_done) || {};
-    profile = { name: $("me-name").value.trim(), role: $("me-role").value.trim(), goals: goals, goals_done: prevDone };
+    profile = {
+      name: $("me-name").value.trim(), role: $("me-role").value.trim(), goals: goals, goals_done: prevDone,
+      linkedin_url: $("me-linkedin-url").value.trim(), company_name: $("me-company-name").value.trim()
+    };
     saveProfile();
     toast("Saved");
     renderToday();
@@ -1678,7 +1765,7 @@
   $("me-reset").addEventListener("click", function (ev) {
     var btn = ev.currentTarget;
     if (btn.dataset.confirm === "1") {
-      profile = { name: "", role: "", goals: [], goals_done: {} };
+      profile = { name: "", role: "", goals: [], goals_done: {}, linkedin_url: "", company_name: "" };
       saveProfile();
       renderToday();
       $("onboard").hidden = false;
@@ -1724,7 +1811,10 @@
     var name = $("ob-name").value.trim();
     var role = $("ob-role").value.trim();
     var goals = readGoalPicker($("ob-goal-picker"), $("ob-goal-custom"));
-    profile = { name: name, role: role, goals: goals, goals_done: {} };
+    profile = {
+      name: name, role: role, goals: goals, goals_done: {},
+      linkedin_url: $("ob-linkedin-url").value.trim(), company_name: $("ob-company-name").value.trim()
+    };
     saveProfile();
     $("onboard").hidden = true;
     renderToday();
