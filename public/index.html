@@ -819,9 +819,9 @@
         </div>
 
         <div>
-          <div class="eyebrow">Tradeshow community</div>
+          <div class="eyebrow">CoCreate Community</div>
           <div class="card">
-            <div class="caveat" style="margin:0 0 10px;">Visible to anyone you've shared a Circuit link with &mdash; not the official CoCreate LA app.</div>
+            <div class="caveat" style="margin:0 0 10px;">Shared with everyone on your Circuit &mdash; see what your crew's posting from the floor.</div>
             <textarea id="comm-post-text" rows="2" placeholder="Share something with the group&hellip;"></textarea>
             <div class="btn-row" style="margin-top:10px;">
               <button class="btn btn-primary" id="comm-post-send">Post</button>
@@ -1526,7 +1526,7 @@
     }
   }
 
-  // ---------------- Tradeshow community feed (shared across all Circuit workspaces) ----------------
+  // ---------------- CoCreate Community feed (shared across all Circuit workspaces) ----------------
   var communityPosts = [];
   function loadCommunityPosts() {
     return api("/api/community-posts").then(function (rows) { communityPosts = rows || []; renderCommunityFeed(); })
