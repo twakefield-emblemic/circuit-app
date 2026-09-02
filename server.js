@@ -59,6 +59,15 @@ function resolveWorkspace(req, res, next) {
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
+// Picks the "currently representing" company entry from a profile row — the one whose
+// goals/name drive scoring, the goals checklist, and Top Matches right now. Falls back to
+// the first company if active_company_id doesn't match anything (e.g. it was removed).
+function activeCompanyOf(profileRow) {
+  const companies = Array.isArray(profileRow && profileRow.companies) ? profileRow.companies : [];
+  const activeId = profileRow && profileRow.active_company_id;
+  return companies.find((c) => c && c.id === activeId) || companies[0] || null;
+}
+
 app.get("/api/profile", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
     const { rows } = await query("SELECT * FROM profile WHERE workspace_id = $1", [req.workspaceId]);
@@ -72,22 +81,31 @@ app.put("/api/profile", requireAppSecret, resolveWorkspace, async (req, res, nex
     // The frontend's in-memory profile object mirrors what GET returns (snake_case,
     // straight from Postgres column names) rather than camelCase — accept both here
     // so a save never silently drops a field it received under the "other" spelling.
-    const { name, role, goals } = body;
-    const goalsDone = body.goals_done !== undefined ? body.goals_done : body.goalsDone;
+    const { name } = body;
     const linkedinUrl = body.linkedin_url !== undefined ? body.linkedin_url : body.linkedinUrl;
-    const companyName = body.company_name !== undefined ? body.company_name : body.companyName;
+    const activeCompanyId = String(
+      (body.active_company_id !== undefined ? body.active_company_id : body.activeCompanyId) || ""
+    ).slice(0, 60);
+
+    // Representing more than one company at the show — each entry is sanitized here
+    // rather than trusted as-is from the client, same spirit as every other write route.
+    const companiesIn = Array.isArray(body.companies) ? body.companies : [];
+    const companies = companiesIn.map((c, i) => ({
+      id: String((c && c.id) || "").slice(0, 60) || `company-${i}-${Date.now().toString(36)}`,
+      name: String((c && c.name) || "").trim().slice(0, 120),
+      role: String((c && c.role) || "").trim().slice(0, 120),
+      goals: Array.isArray(c && c.goals) ? c.goals.filter(Boolean).map(String) : [],
+      goals_done: (c && typeof c.goals_done === "object" && c.goals_done) || {},
+    }));
+
     const { rows } = await query(
-      `INSERT INTO profile (workspace_id, name, role, goals, goals_done, linkedin_url, company_name, updated_at)
-       VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, now())
+      `INSERT INTO profile (workspace_id, name, linkedin_url, companies, active_company_id, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5, now())
        ON CONFLICT (workspace_id) DO UPDATE SET
-         name = EXCLUDED.name, role = EXCLUDED.role,
-         goals = EXCLUDED.goals, goals_done = EXCLUDED.goals_done,
-         linkedin_url = EXCLUDED.linkedin_url, company_name = EXCLUDED.company_name, updated_at = now()
+         name = EXCLUDED.name, linkedin_url = EXCLUDED.linkedin_url,
+         companies = EXCLUDED.companies, active_company_id = EXCLUDED.active_company_id, updated_at = now()
        RETURNING *`,
-      [
-        req.workspaceId, name || "", role || "", JSON.stringify(goals || []), JSON.stringify(goalsDone || {}),
-        linkedinUrl || "", companyName || "",
-      ]
+      [req.workspaceId, name || "", linkedinUrl || "", JSON.stringify(companies), activeCompanyId]
     );
     res.json(rows[0]);
   } catch (err) { next(err); }
@@ -105,10 +123,10 @@ app.get("/api/scans", requireAppSecret, resolveWorkspace, async (req, res, next)
 
 app.post("/api/scans", requireAppSecret, resolveWorkspace, async (req, res, next) => {
   try {
-    const { name, confidence, orbs, note, score, scoreLabel, scoreReasons } = req.body || {};
+    const { name, confidence, orbs, note, score, scoreLabel, scoreReasons, companyContext } = req.body || {};
     const { rows } = await query(
-      `INSERT INTO scans (workspace_id, name, confidence, orbs, note, score, score_label, score_reasons)
-       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO scans (workspace_id, name, confidence, orbs, note, score, score_label, score_reasons, company_context)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9) RETURNING *`,
       [
         req.workspaceId,
         name || "Unidentified vendor",
@@ -118,6 +136,7 @@ app.post("/api/scans", requireAppSecret, resolveWorkspace, async (req, res, next
         Number.isFinite(score) ? score : null,
         scoreLabel || "",
         scoreReasons || "",
+        String(companyContext || "").trim().slice(0, 120),
       ]
     );
     res.status(201).json(rows[0]);
@@ -146,17 +165,20 @@ app.delete("/api/scans/:id", requireAppSecret, resolveWorkspace, async (req, res
 app.post("/api/scan", requireAppSecret, resolveWorkspace, upload.single("photo"), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "invalid_request", message: "no photo attached" });
-    // Emblemic Score weighs the scan against the buyer's own stated goals (and, if
-    // provided, their LinkedIn/company for a two-sided read) — pull whatever's saved
-    // on the profile right now. Missing goals or LinkedIn/company just means a lighter,
-    // vendor-only score, same as before this field existed.
+    // Emblemic Score weighs the scan against whichever company is "currently
+    // representing" (see profile.companies/active_company_id) — its own goals and name,
+    // not a blend of every company the buyer might represent across the show. LinkedIn
+    // stays a single shared field since it's the buyer's own personal profile, not
+    // tied to any one company. Missing goals or context just means a lighter,
+    // vendor-only score, same as before per-company profiles existed.
     const { rows } = await query(
-      "SELECT goals, linkedin_url, company_name FROM profile WHERE workspace_id = $1",
+      "SELECT companies, active_company_id, linkedin_url FROM profile WHERE workspace_id = $1",
       [req.workspaceId]
     );
-    const goals = (rows[0] && rows[0].goals) || [];
+    const active = activeCompanyOf(rows[0]);
+    const goals = (active && active.goals) || [];
     const linkedinUrl = (rows[0] && rows[0].linkedin_url) || "";
-    const companyName = (rows[0] && rows[0].company_name) || "";
+    const companyName = (active && active.name) || "";
     const result = await identifyVendor(req.file.buffer, req.file.mimetype || "image/jpeg", goals, {
       linkedinUrl,
       companyName,
@@ -252,8 +274,16 @@ app.post("/api/meeting-message", requireAppSecret, resolveWorkspace, async (req,
   try {
     const company = String((req.body && req.body.company) || "").trim();
     if (!company) return res.status(400).json({ error: "invalid_request", message: "company is required" });
-    const { rows } = await query("SELECT name, role, goals FROM profile WHERE workspace_id = $1", [req.workspaceId]);
-    const text = await draftMeetingMessage(company, (req.body && req.body.context) || {}, rows[0] || null);
+    const { rows } = await query(
+      "SELECT name, companies, active_company_id FROM profile WHERE workspace_id = $1",
+      [req.workspaceId]
+    );
+    // The drafted message should speak as whichever company is "currently
+    // representing" (role + company name), not blend every company the buyer reps.
+    const active = activeCompanyOf(rows[0]);
+    const role = active ? [active.role, active.name].filter(Boolean).join(" at ") : "";
+    const profileRow = { name: rows[0] && rows[0].name, role, goals: (active && active.goals) || [] };
+    const text = await draftMeetingMessage(company, (req.body && req.body.context) || {}, profileRow);
     res.json({ text });
   } catch (err) { next(err); }
 });

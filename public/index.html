@@ -498,6 +498,7 @@
   .log-head .lh-txt { flex: 1; min-width: 0; }
   .log-head .lh-name { font-weight: 700; font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .log-head .lh-time { font-size: 11px; color: var(--ink-faint); font-family: "Space Mono", monospace; margin-top: 1px; }
+  .log-head .lh-company { font-size: 11px; color: var(--ink-faint); margin-top: 1px; }
   .log-head .lh-chevron { color: var(--ink-faint); transition: transform .2s; flex-shrink: 0; }
   .log-head .escore-chip { flex-shrink: 0; }
   .log-item.open .lh-chevron { transform: rotate(180deg); }
@@ -514,6 +515,35 @@
   /* ---------- me view ---------- */
   .field { display: flex; flex-direction: column; gap: 6px; }
   .goal-picker { display: flex; flex-wrap: wrap; gap: 7px; }
+
+  /* companies at the show (representing more than one) */
+  .company-card {
+    border: 1.5px solid var(--line-strong); border-radius: 14px; background: var(--surface);
+    padding: 14px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px;
+  }
+  .company-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .company-card-head .field-label { margin-bottom: 0; }
+  .company-remove-btn {
+    background: none; border: none; color: var(--ink-faint); cursor: pointer;
+    font-size: 12px; font-weight: 700; font-family: inherit; padding: 2px 0;
+  }
+  .add-company-btn {
+    background: none; border: 1.5px dashed var(--line-strong); color: var(--ink-dim);
+    border-radius: 12px; padding: 11px; font-size: 13px; font-weight: 700; cursor: pointer;
+    font-family: inherit; margin-bottom: 16px;
+  }
+
+  /* "Representing" switcher on the home screen — which company's goals/context is active */
+  .rep-switcher { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 4px; }
+  .rep-switcher .rep-label {
+    width: 100%; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--ink-faint); margin-bottom: 1px;
+  }
+  .rep-chip {
+    background: var(--surface); border: 1.5px solid var(--line-strong); border-radius: 100px;
+    font-size: 12.5px; font-weight: 600; padding: 7px 13px; cursor: pointer; color: var(--ink); font-family: inherit;
+  }
+  .rep-chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
   /* ---------- context card (LinkedIn / company, for the Emblemic Score) ---------- */
   .context-card {
@@ -617,8 +647,12 @@
       <input type="text" id="ob-name" placeholder="e.g. Terrence Wakefield" autocomplete="off">
     </div>
     <div class="field">
-      <label class="field-label" for="ob-role">Role &amp; company</label>
-      <input type="text" id="ob-role" placeholder="e.g. Founder, Emblemic" autocomplete="off">
+      <label class="field-label" for="ob-company-name">Company name</label>
+      <input type="text" id="ob-company-name" placeholder="e.g. Emblemic.ai" autocomplete="off">
+    </div>
+    <div class="field">
+      <label class="field-label" for="ob-role">Your role there</label>
+      <input type="text" id="ob-role" placeholder="e.g. Co-Founder" autocomplete="off">
     </div>
     <div class="field">
       <div class="context-card" id="ob-linkedin-card">
@@ -635,11 +669,7 @@
             <label class="field-label" for="ob-linkedin-url">LinkedIn profile URL</label>
             <input type="text" id="ob-linkedin-url" placeholder="linkedin.com/in/yourname" autocomplete="off">
           </div>
-          <div class="field">
-            <label class="field-label" for="ob-company-name">Company / website</label>
-            <input type="text" id="ob-company-name" placeholder="e.g. Emblemic.ai" autocomplete="off">
-          </div>
-          <div class="context-card-note">Claude reads whatever's publicly visible at these links during each scan &mdash; not a real LinkedIn login, just a search, the same way it already looks up vendors.</div>
+          <div class="context-card-note">Claude reads whatever's publicly visible at this link during each scan &mdash; not a real LinkedIn login, just a search, the same way it already looks up vendors.</div>
         </div>
       </div>
     </div>
@@ -651,6 +681,7 @@
       <label class="field-label" for="ob-goal-custom">Add your own goal (optional)</label>
       <input type="text" id="ob-goal-custom" placeholder="e.g. Scope AI-matchmaking competitors" autocomplete="off">
     </div>
+    <div class="caveat" style="margin-top:0;">Representing more than one company? Add another from the Me tab once you're set up.</div>
 
     <div class="ob-actions">
       <button class="btn btn-primary" id="ob-submit">Start using Circuit</button>
@@ -687,6 +718,8 @@
         <h1 id="greet-line">Good day.</h1>
         <p id="greet-sub">Here's where things stand.</p>
       </div>
+
+      <div class="rep-switcher" id="rep-switcher" hidden></div>
 
       <button class="scan-cta" id="cta-scan">
         <svg class="orb-icon" viewBox="0 0 46 46"><circle cx="23" cy="23" r="23" fill="var(--accent)"/><circle cx="14" cy="18" r="12" fill="var(--cream)"/></svg>
@@ -846,16 +879,12 @@
         <input type="text" id="me-name" autocomplete="off">
       </div>
       <div class="field">
-        <label class="field-label" for="me-role">Role &amp; company</label>
-        <input type="text" id="me-role" autocomplete="off">
-      </div>
-      <div class="field">
         <div class="context-card" id="me-linkedin-card">
           <button type="button" class="context-card-head" id="me-linkedin-toggle">
             <div class="context-card-icon">in</div>
             <div class="context-card-text">
-              <div class="context-card-title">LinkedIn &amp; company</div>
-              <div class="context-card-sub">Optional &mdash; factors your own background into the Emblemic Score on every scan.</div>
+              <div class="context-card-title">Your LinkedIn</div>
+              <div class="context-card-sub">Optional &mdash; factors your own background into the Emblemic Score on every scan, whichever company you're representing.</div>
             </div>
             <svg class="context-card-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
           </button>
@@ -864,22 +893,16 @@
               <label class="field-label" for="me-linkedin-url">LinkedIn profile URL</label>
               <input type="text" id="me-linkedin-url" placeholder="linkedin.com/in/yourname" autocomplete="off">
             </div>
-            <div class="field">
-              <label class="field-label" for="me-company-name">Company / website</label>
-              <input type="text" id="me-company-name" placeholder="e.g. Emblemic.ai" autocomplete="off">
-            </div>
-            <div class="context-card-note">Claude reads whatever's publicly visible at these links during each scan &mdash; not a real LinkedIn login, just a search, the same way it already looks up vendors.</div>
+            <div class="context-card-note">Claude reads whatever's publicly visible at this link during each scan &mdash; not a real LinkedIn login, just a search, the same way it already looks up vendors.</div>
           </div>
         </div>
       </div>
-      <div class="field">
-        <label class="field-label">Goals for the show</label>
-        <div class="goal-picker" id="me-goal-picker"></div>
-      </div>
-      <div class="field">
-        <label class="field-label" for="me-goal-custom">Add your own goal</label>
-        <input type="text" id="me-goal-custom" placeholder="Type and press Save below" autocomplete="off">
-      </div>
+
+      <div class="eyebrow" style="margin-top:4px;">Companies at this show</div>
+      <div class="caveat" style="margin:0 0 12px;">Each has its own goals &mdash; switch which one you're representing from the home screen.</div>
+      <div id="me-companies"></div>
+      <button type="button" class="add-company-btn" id="me-add-company">+ Add another company</button>
+
       <button class="btn btn-primary" id="me-save">Save changes</button>
       <div class="notice-banner" id="me-storage-note">Saved to your own Circuit backend — not shared with anyone else.</div>
       <button class="text-btn danger" id="me-reset" style="align-self:flex-start;">Reset all data</button>
@@ -1109,6 +1132,42 @@
   var meetings = [];
   var scheduleDay = 1;
   var pendingImageFile = null;
+
+  // ---------------- Companies (representing more than one at the show) ----------------
+  function newCompanyId() { return "company-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+  // The company whose goals/context are "currently representing" — drives the goals
+  // checklist, Top Matches, and what gets scanned/searched against on every scan.
+  // Falls back to the first company if active_company_id doesn't match anything.
+  function activeCompany() {
+    var list = (profile && profile.companies) || [];
+    if (!list.length) return null;
+    var id = profile && profile.active_company_id;
+    var found = null;
+    for (var i = 0; i < list.length; i++) { if (list[i].id === id) { found = list[i]; break; } }
+    return found || list[0];
+  }
+
+  // One-time client-side migration: older saved profiles (before multi-company support)
+  // kept a single top-level role/goals/goals_done/company_name — fold those into the
+  // first company entry so nothing gets lost, then save so this never has to run again.
+  function migrateLegacyProfileIfNeeded() {
+    if (!profile) return false;
+    if (Array.isArray(profile.companies) && profile.companies.length) return false;
+    var hadLegacyData = !!(profile.role || profile.company_name || (profile.goals || []).length);
+    if (!hadLegacyData) return false;
+    var id = newCompanyId();
+    profile.companies = [{
+      id: id,
+      name: profile.company_name || "",
+      role: profile.role || "",
+      goals: profile.goals || [],
+      goals_done: profile.goals_done || {}
+    }];
+    profile.active_company_id = id;
+    saveProfile();
+    return true;
+  }
   var lastResult = null; // {name, confidence, orbs}
 
   var $ = function (id) { return document.getElementById(id); };
@@ -1244,15 +1303,40 @@
   }
 
   // ---------------- render: Today ----------------
+  // "Representing" switcher — which company's goals/context is active right now.
+  // Hidden entirely for the common single-company case; only shows once a second
+  // company exists, since switching has nothing to do until then.
+  function renderRepSwitcher() {
+    var box = $("rep-switcher");
+    var companies = (profile && profile.companies) || [];
+    if (companies.length < 2) { box.hidden = true; box.innerHTML = ""; return; }
+    var active = activeCompany();
+    box.hidden = false;
+    box.innerHTML = '<div class="rep-label">Representing</div>' + companies.map(function (c) {
+      var on = active && c.id === active.id;
+      return '<button type="button" class="rep-chip' + (on ? " on" : "") + '" data-id="' + escapeHtml(c.id) + '">' +
+        escapeHtml(c.name || c.role || "Untitled company") + '</button>';
+    }).join("");
+    Array.prototype.forEach.call(box.querySelectorAll(".rep-chip"), function (btn) {
+      btn.addEventListener("click", function () {
+        if (!profile) return;
+        profile.active_company_id = btn.dataset.id;
+        saveProfile();
+        renderToday();
+      });
+    });
+  }
+
   function renderGoals() {
     var box = $("today-goals");
-    var goals = (profile && profile.goals) || [];
+    var company = activeCompany();
+    var goals = (company && company.goals) || [];
     if (!goals.length) {
       box.innerHTML = '<div class="goals-empty">No goals set yet. <button class="link-btn" data-goto="me" style="display:inline;padding:0;">Add some</button></div>';
       bindGotoLinks(box);
       return;
     }
-    var done = (profile && profile.goals_done) || {};
+    var done = (company && company.goals_done) || {};
     box.innerHTML = goals.map(function (g, i) {
       var isDone = !!done[i];
       return '<div class="goal-row' + (isDone ? " done" : "") + '" data-idx="' + i + '">' +
@@ -1261,9 +1345,11 @@
     }).join("");
     Array.prototype.forEach.call(box.querySelectorAll(".goal-row"), function (row) {
       row.addEventListener("click", function () {
+        var c = activeCompany();
+        if (!c) return;
         var i = row.dataset.idx;
-        profile.goals_done = profile.goals_done || {};
-        profile.goals_done[i] = !profile.goals_done[i];
+        c.goals_done = c.goals_done || {};
+        c.goals_done[i] = !c.goals_done[i];
         saveProfile();
         renderGoals();
       });
@@ -1285,6 +1371,7 @@
 
   function renderToday() {
     updateGreeting();
+    renderRepSwitcher();
     renderGoals();
     renderRecent();
     renderMeetings();
@@ -1597,7 +1684,7 @@
         '</div>';
       }).join("");
     } else {
-      var goals = (profile && profile.goals) || [];
+      var goals = (activeCompany() && activeCompany().goals) || [];
       var hasSignal = goalKeywords(goals).length > 0;
       eyebrow.textContent = hasSignal ? "Top Matches for your goals" : "Suggested suppliers";
       caveat.textContent = hasSignal
@@ -1962,9 +2049,11 @@
 
   function saveScan() {
     var note = $("scan-note").value.trim();
+    var company = activeCompany();
     var entry = {
       name: lastResult.name, confidence: lastResult.confidence, orbs: lastResult.orbs, note: note,
-      score: lastResult.score, scoreLabel: lastResult.scoreLabel, scoreReasons: lastResult.scoreReasons
+      score: lastResult.score, scoreLabel: lastResult.scoreLabel, scoreReasons: lastResult.scoreReasons,
+      companyContext: (company && company.name) || ""
     };
     api("/api/scans", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(entry) })
       .then(function (created) {
@@ -1991,11 +2080,16 @@
           '<div class="oc-label">' + f.label + '</div><div class="oc-text">' + escapeHtml((s.orbs && s.orbs[f.key]) || "—") + '</div></div></div>';
       }).join("");
       var scoreVal = s.score === null || s.score === undefined ? NaN : Number(s.score);
+      // Only worth a tag once there's more than one company to distinguish between —
+      // for the common single-company case it'd just repeat the same name every time.
+      var showCompanyTag = ((profile && profile.companies) || []).length > 1 && s.company_context;
       return '<div class="log-item" data-id="' + s.id + '">' +
         '<div class="log-head">' +
           '<div class="lh-badge"></div>' +
           '<div class="lh-txt"><div class="lh-name">' + escapeHtml(s.name || "Unknown vendor") + '</div>' +
-          '<div class="lh-time">' + fmtTime(s.created_at) + '</div></div>' +
+          '<div class="lh-time">' + fmtTime(s.created_at) + '</div>' +
+          (showCompanyTag ? '<div class="lh-company">Scanned as ' + escapeHtml(s.company_context) + '</div>' : '') +
+          '</div>' +
           escoreChipHtml(scoreVal, s.score_label) +
           '<span class="lh-chevron">&#9662;</span>' +
         '</div>' +
@@ -2051,19 +2145,92 @@
   }
 
   // ---------------- Me ----------------
+  // Working copy of profile.companies that the Me tab edits directly — only committed
+  // back to `profile` (and saved) when Save changes is pressed, so "+ Add another
+  // company" / "Remove" can freely re-render the card list without losing unsaved edits
+  // in the other cards (synced from the DOM first every time the list itself changes).
+  var meCompaniesDraft = [];
+
   function renderMe() {
     $("me-name").value = (profile && profile.name) || "";
-    $("me-role").value = (profile && profile.role) || "";
-    $("me-goal-custom").value = "";
     var linkedinUrl = (profile && profile.linkedin_url) || "";
-    var companyName = (profile && profile.company_name) || "";
     $("me-linkedin-url").value = linkedinUrl;
-    $("me-company-name").value = companyName;
-    // If either was already saved, open the card by default so editing it isn't
-    // hidden behind an extra tap — otherwise leave it collapsed like a fresh profile.
-    $("me-linkedin-card").classList.toggle("open", !!(linkedinUrl || companyName));
-    buildGoalPicker($("me-goal-picker"), (profile && profile.goals) || []);
+    // If already saved, open the card by default so editing it isn't hidden behind an
+    // extra tap — otherwise leave it collapsed like a fresh profile.
+    $("me-linkedin-card").classList.toggle("open", !!linkedinUrl);
+
+    meCompaniesDraft = ((profile && profile.companies) || []).map(function (c) {
+      return {
+        id: c.id, name: c.name || "", role: c.role || "",
+        goals: (c.goals || []).slice(), goals_done: Object.assign({}, c.goals_done || {})
+      };
+    });
+    if (!meCompaniesDraft.length) {
+      meCompaniesDraft.push({ id: newCompanyId(), name: "", role: "", goals: [], goals_done: {} });
+    }
+    renderCompanyCards();
   }
+
+  // Reads whatever's currently in each card's inputs back into meCompaniesDraft — call
+  // this before any action that re-renders the card list (add/remove) so in-progress
+  // edits in the other cards survive the re-render.
+  function syncCompanyCardsFromDom() {
+    meCompaniesDraft.forEach(function (c) {
+      var nameInput = $("mc-name-" + c.id);
+      if (!nameInput) return;
+      c.name = nameInput.value.trim();
+      c.role = $("mc-role-" + c.id).value.trim();
+      c.goals = readGoalPicker($("mc-goalpicker-" + c.id), $("mc-goalcustom-" + c.id));
+    });
+  }
+
+  function renderCompanyCards() {
+    var box = $("me-companies");
+    box.innerHTML = meCompaniesDraft.map(function (c, i) {
+      return '<div class="company-card" data-id="' + escapeHtml(c.id) + '">' +
+        '<div class="company-card-head">' +
+          '<label class="field-label">Company ' + (i + 1) + '</label>' +
+          (meCompaniesDraft.length > 1
+            ? '<button type="button" class="company-remove-btn" data-id="' + escapeHtml(c.id) + '">Remove</button>'
+            : "") +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="field-label" for="mc-name-' + c.id + '">Company name</label>' +
+          '<input type="text" id="mc-name-' + c.id + '" placeholder="e.g. Emblemic.ai" value="' + escapeHtml(c.name) + '" autocomplete="off">' +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="field-label" for="mc-role-' + c.id + '">Your role there</label>' +
+          '<input type="text" id="mc-role-' + c.id + '" placeholder="e.g. Co-Founder" value="' + escapeHtml(c.role) + '" autocomplete="off">' +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="field-label">Goals for this company</label>' +
+          '<div class="goal-picker" id="mc-goalpicker-' + c.id + '"></div>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="field-label" for="mc-goalcustom-' + c.id + '">Add your own goal</label>' +
+          '<input type="text" id="mc-goalcustom-' + c.id + '" placeholder="Type and press Save below" autocomplete="off">' +
+        '</div>' +
+      '</div>';
+    }).join("");
+
+    meCompaniesDraft.forEach(function (c) {
+      buildGoalPicker($("mc-goalpicker-" + c.id), c.goals || []);
+    });
+
+    Array.prototype.forEach.call(box.querySelectorAll(".company-remove-btn"), function (btn) {
+      btn.addEventListener("click", function () {
+        syncCompanyCardsFromDom();
+        meCompaniesDraft = meCompaniesDraft.filter(function (c) { return c.id !== btn.dataset.id; });
+        renderCompanyCards();
+      });
+    });
+  }
+
+  $("me-add-company").addEventListener("click", function () {
+    syncCompanyCardsFromDom();
+    meCompaniesDraft.push({ id: newCompanyId(), name: "", role: "", goals: [], goals_done: {} });
+    renderCompanyCards();
+  });
 
   $("me-linkedin-toggle").addEventListener("click", function () {
     $("me-linkedin-card").classList.toggle("open");
@@ -2073,11 +2240,22 @@
   });
 
   $("me-save").addEventListener("click", function () {
-    var goals = readGoalPicker($("me-goal-picker"), $("me-goal-custom"));
-    var prevDone = (profile && profile.goals_done) || {};
+    syncCompanyCardsFromDom();
+    var prevCompanies = (profile && profile.companies) || [];
+    var companies = meCompaniesDraft.map(function (c) {
+      // goals_done is keyed by goal index within THIS company's list — carry the
+      // previously saved checkmarks forward rather than the in-progress draft copy,
+      // same as how the single-goals-list version always worked.
+      var prev = prevCompanies.filter(function (p) { return p.id === c.id; })[0];
+      return { id: c.id, name: c.name, role: c.role, goals: c.goals, goals_done: (prev && prev.goals_done) || {} };
+    });
+    var prevActiveId = profile && profile.active_company_id;
+    var activeStillExists = companies.some(function (c) { return c.id === prevActiveId; });
     profile = {
-      name: $("me-name").value.trim(), role: $("me-role").value.trim(), goals: goals, goals_done: prevDone,
-      linkedin_url: $("me-linkedin-url").value.trim(), company_name: $("me-company-name").value.trim()
+      name: $("me-name").value.trim(),
+      linkedin_url: $("me-linkedin-url").value.trim(),
+      companies: companies,
+      active_company_id: activeStillExists ? prevActiveId : ((companies[0] && companies[0].id) || "")
     };
     saveProfile();
     toast("Saved");
@@ -2087,7 +2265,7 @@
   $("me-reset").addEventListener("click", function (ev) {
     var btn = ev.currentTarget;
     if (btn.dataset.confirm === "1") {
-      profile = { name: "", role: "", goals: [], goals_done: {}, linkedin_url: "", company_name: "" };
+      profile = { name: "", linkedin_url: "", companies: [], active_company_id: "" };
       saveProfile();
       renderToday();
       $("onboard").hidden = false;
@@ -2131,11 +2309,19 @@
   }
   $("ob-submit").addEventListener("click", function () {
     var name = $("ob-name").value.trim();
-    var role = $("ob-role").value.trim();
+    var companyId = newCompanyId();
     var goals = readGoalPicker($("ob-goal-picker"), $("ob-goal-custom"));
     profile = {
-      name: name, role: role, goals: goals, goals_done: {},
-      linkedin_url: $("ob-linkedin-url").value.trim(), company_name: $("ob-company-name").value.trim()
+      name: name,
+      linkedin_url: $("ob-linkedin-url").value.trim(),
+      companies: [{
+        id: companyId,
+        name: $("ob-company-name").value.trim(),
+        role: $("ob-role").value.trim(),
+        goals: goals,
+        goals_done: {}
+      }],
+      active_company_id: companyId
     };
     saveProfile();
     $("onboard").hidden = true;
@@ -2165,11 +2351,13 @@
       profile = results[0];
       scans = results[1] || [];
       meetings = results[2] || [];
+      migrateLegacyProfileIfNeeded();
       renderLog(); renderRecent();
       // Setup/onboarding is a pre-show step — once the show has actually started, always land
       // on the home screen instead, even for a profile that never finished onboarding.
       var eventHasStarted = new Date() >= EVENT_START;
-      if (!eventHasStarted && (!profile || (!profile.name && !(profile.goals || []).length))) {
+      var hasAnyCompany = !!(profile && (profile.companies || []).length);
+      if (!eventHasStarted && (!profile || (!profile.name && !hasAnyCompany))) {
         showOnboard();
       }
       renderToday();

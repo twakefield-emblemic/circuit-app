@@ -31,6 +31,17 @@ async function initDb() {
   await query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS linkedin_url TEXT DEFAULT '';`);
   await query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS company_name TEXT DEFAULT '';`);
 
+  // Representing more than one company at the show (e.g. two different employers/
+  // ventures) — each entry is its own {id, name, role, goals, goals_done}, and
+  // active_company_id says which one is "currently representing" on the home screen,
+  // driving which goals show, which goals feed the Emblemic Score, and which company
+  // context gets searched for buyer-side scoring. The old top-level role/goals/
+  // goals_done/company_name columns above are kept (never dropped) for rollback safety,
+  // but the frontend no longer reads or writes them once `companies` is populated — a
+  // one-time client-side migration seeds `companies` from them on first load.
+  await query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS companies JSONB DEFAULT '[]'::jsonb;`);
+  await query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS active_company_id TEXT DEFAULT '';`);
+
   // Migration for a profile table from before workspaces existed (single row,
   // "id INTEGER PRIMARY KEY DEFAULT 1" instead of workspace_id) — the CREATE TABLE
   // above no-ops against a table that already exists, so the old shape needs to be
@@ -79,6 +90,11 @@ async function initDb() {
   await query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS score_label TEXT;`);
   await query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS score_reasons TEXT;`);
   await query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS workspace_id TEXT NOT NULL DEFAULT 'main';`);
+
+  // Which company (see profile.companies above) was "currently representing" when this
+  // scan happened — denormalized onto the scan itself so the log still shows the right
+  // label even if that company entry is later renamed or removed from the profile.
+  await query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS company_context TEXT DEFAULT '';`);
 
   await query(`CREATE INDEX IF NOT EXISTS idx_scans_workspace_created ON scans (workspace_id, created_at DESC);`);
 
