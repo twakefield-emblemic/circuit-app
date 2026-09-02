@@ -264,6 +264,86 @@
   .comm-link .cl-name { display: block; font-weight: 600; font-size: 13.5px; }
   .comm-link .cl-sub { display: block; font-size: 11.5px; color: var(--ink-faint); margin-top: 1px; }
 
+  /* top matches */
+  .match-row {
+    display: flex; gap: 10px; overflow-x: auto; padding: 2px 1px 6px; scroll-snap-type: x proximity;
+  }
+  .match-row::-webkit-scrollbar { display: none; }
+  .match-card {
+    scroll-snap-align: start; flex: 0 0 auto; width: 168px;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 12px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .match-badge {
+    width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+    background: radial-gradient(circle at 32% 28%, var(--cream), var(--accent) 72%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "Space Mono", monospace; font-weight: 700; font-size: 12px; color: var(--accent-ink);
+  }
+  .match-tag {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--ink-faint);
+  }
+  .match-name { font-weight: 700; font-size: 13.5px; line-height: 1.25; }
+  .match-sub { font-size: 11.5px; color: var(--ink-dim); line-height: 1.4; flex: 1; }
+  .match-meet {
+    background: none; border: 1.5px solid var(--line-strong); color: var(--ink); border-radius: 100px;
+    font-size: 11.5px; font-weight: 700; padding: 6px 10px; cursor: pointer; font-family: inherit;
+    align-self: flex-start;
+  }
+  .match-empty { font-size: 13.5px; color: var(--ink-faint); }
+
+  /* supplier directory (expandable) */
+  .supplier-toggle {
+    background: none; border: none; color: var(--accent); font-size: 12.5px; font-weight: 700;
+    cursor: pointer; padding: 2px 0; font-family: inherit; text-align: left;
+  }
+  .supplier-browser { margin-top: 10px; }
+  .supplier-search {
+    width: 100%; border: 1.5px solid var(--line-strong); border-radius: 10px; padding: 9px 11px;
+    font-size: 13.5px; font-family: inherit; background: var(--surface); color: var(--ink); margin-bottom: 8px;
+  }
+  .supplier-list { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow-y: auto; }
+  .supplier-row { padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .supplier-row:last-child { border-bottom: none; }
+  .supplier-row .sr-top { display: flex; align-items: baseline; gap: 7px; }
+  .supplier-row .sr-name { font-weight: 700; font-size: 13px; }
+  .supplier-row .sr-cat { font-size: 10.5px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .03em; }
+  .supplier-row .sr-tagline { font-size: 12px; color: var(--ink-dim); margin-top: 1px; line-height: 1.4; }
+
+  /* home tile grid */
+  .tile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tile {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 13px;
+    display: flex; flex-direction: column; gap: 4px; text-align: left; cursor: pointer; color: inherit;
+    font-family: inherit; min-height: 92px;
+  }
+  .tile .tile-head { display: flex; align-items: center; justify-content: space-between; }
+  .tile .tile-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-faint); }
+  .tile .tile-arrow { color: var(--ink-faint); font-size: 14px; }
+  .tile .tile-main { font-weight: 700; font-size: 14.5px; line-height: 1.3; }
+  .tile .tile-sub { font-size: 11.5px; color: var(--ink-dim); line-height: 1.35; }
+  .tile.tile-accent { background: linear-gradient(135deg, var(--accent-soft), transparent 70%), var(--surface-2); }
+
+  /* event view sub-tabs */
+  .event-subtabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+  .event-subtab {
+    background: none; border: none; font-family: inherit; font-size: 13px; font-weight: 700;
+    color: var(--ink-faint); padding: 9px 4px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .event-subtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .event-subview { display: none; flex-direction: column; gap: 16px; }
+  .event-subview.active { display: flex; }
+
+  /* wrap up */
+  .wrap-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .wrap-stat {
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 14px;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .wrap-stat .ws-num { font-family: "Space Mono", monospace; font-weight: 700; font-size: 24px; }
+  .wrap-stat .ws-label { font-size: 11.5px; color: var(--ink-dim); }
+
   /* ---------- scan view ---------- */
   .scan-stage {
     border: 1.5px dashed var(--line-strong); border-radius: var(--radius);
@@ -518,6 +598,19 @@
 
       <div>
         <div class="section-head">
+          <div class="eyebrow" id="match-eyebrow">Top Matches</div>
+        </div>
+        <div class="match-row" id="match-row"></div>
+        <div class="caveat" id="match-caveat" style="margin-top:0;"></div>
+        <button class="supplier-toggle" id="supplier-toggle">Browse all suppliers</button>
+        <div class="supplier-browser" id="supplier-browser" hidden>
+          <input type="text" class="supplier-search" id="supplier-search" placeholder="Search by company, category, or product&hellip;">
+          <div class="supplier-list" id="supplier-list"></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-head">
           <div class="eyebrow">Your goals for the show</div>
           <button class="link-btn" data-goto="me">Edit</button>
         </div>
@@ -563,19 +656,18 @@
       </div>
 
       <div>
-        <div class="eyebrow">Show Schedule</div>
-        <div class="card">
-          <div class="ask-suggest" id="sched-days"></div>
-          <div class="sched-list" id="sched-list"></div>
-          <div class="caveat">South Hall GHJ &amp; meeting rooms (300 series) &middot; LA Convention Center</div>
-        </div>
-      </div>
-
-      <div>
-        <div class="eyebrow">Community</div>
-        <div class="card">
-          <div class="comm-links" id="comm-links"></div>
-          <div class="caveat">Hashtag #CoCreate2026</div>
+        <div class="eyebrow">Event</div>
+        <div class="tile-grid">
+          <button class="tile tile-accent" id="tile-agenda" data-goto-event="agenda">
+            <div class="tile-head"><span class="tile-label">Agenda</span><span class="tile-arrow">&#8599;</span></div>
+            <div class="tile-main" id="tile-agenda-main">See what's next</div>
+            <div class="tile-sub" id="tile-agenda-sub">Day 1 &amp; 2 lineup</div>
+          </button>
+          <button class="tile" id="tile-community" data-goto-event="community">
+            <div class="tile-head"><span class="tile-label">Community</span><span class="tile-arrow">&#8599;</span></div>
+            <div class="tile-main">#CoCreate2026</div>
+            <div class="tile-sub">Official channels &amp; contact</div>
+          </button>
         </div>
       </div>
 
@@ -600,6 +692,37 @@
     <section class="view" id="view-log">
       <div class="eyebrow">Everyone you've scanned</div>
       <div id="log-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+    </section>
+
+    <!-- EVENT -->
+    <section class="view" id="view-event">
+      <div class="eyebrow">Event</div>
+      <div class="event-subtabs" id="event-subtabs">
+        <button class="event-subtab active" data-event-tab="agenda">Agenda</button>
+        <button class="event-subtab" data-event-tab="community">Community</button>
+        <button class="event-subtab" data-event-tab="wrapup">Wrap Up</button>
+      </div>
+
+      <div class="event-subview active" id="event-agenda">
+        <div class="card">
+          <div class="ask-suggest" id="sched-days"></div>
+          <div class="sched-list" id="sched-list"></div>
+          <div class="caveat">South Hall GHJ &amp; meeting rooms (300 series) &middot; LA Convention Center</div>
+        </div>
+      </div>
+
+      <div class="event-subview" id="event-community">
+        <div class="card">
+          <div class="comm-links" id="comm-links"></div>
+          <div class="caveat">Hashtag #CoCreate2026</div>
+        </div>
+      </div>
+
+      <div class="event-subview" id="event-wrapup">
+        <div class="wrap-stats" id="wrap-stats"></div>
+        <div class="card" id="wrap-top-card"></div>
+        <div class="caveat" id="wrap-caveat">Fills in as you go &mdash; most useful after Day 2</div>
+      </div>
     </section>
 
     <!-- ME -->
@@ -640,6 +763,10 @@
     <button class="tab-btn" data-tab="log">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
       <span>Log</span>
+    </button>
+    <button class="tab-btn" data-tab="event">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M8 3v4M16 3v4"/></svg>
+      <span>Event</span>
     </button>
     <button class="tab-btn" data-tab="me">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5"/></svg>
@@ -698,6 +825,138 @@
     { icon: "🌐", name: "Event site", sub: "alibabacocreate.com", url: "https://www.alibabacocreate.com/us" },
     { icon: "✉️", name: "Event team", sub: "cocreate@service.alibaba.com", url: "mailto:cocreate@service.alibaba.com" }
   ];
+
+  // Real suppliers featured on the official CoCreate LA 2026 site (alibabacocreate.com/us/suppliers),
+  // captured by hand since the site doesn't expose company names as text (only as logo images) —
+  // company names and one-line descriptions are theirs, not invented.
+  var SUPPLIERS = [
+    {name:"Brightshowcap", category:"Apparel & Accessories", tagline:"Professional hat supplier: tech-driven & full-service"},
+    {name:"Karins Jinju", category:"Apparel & Accessories", tagline:"Your premium partner for performance socks"},
+    {name:"Horaze", category:"Apparel & Accessories", tagline:"18+ years of one-stop supply chain for rhinestone apparel"},
+    {name:"Nobar Wears", category:"Apparel & Accessories", tagline:"Engineering high-complexity streetwear via elite crafts"},
+    {name:"Rydom Sports", category:"Apparel & Accessories", tagline:"Elite fight & fitness apparel specialist"},
+    {name:"Tennecy", category:"Apparel & Accessories", tagline:"Preferred partner for ethnic & fusion apparel manufacturing"},
+    {name:"MA Apparel Enterprises", category:"Apparel & Accessories", tagline:"Crafting eco-performance technical apparel for global brands"},
+    {name:"Dasha Industries", category:"Apparel & Accessories", tagline:"Your low-MOQ partner for custom streetwear & sports gear"},
+    {name:"Kokal Sports", category:"Apparel & Accessories", tagline:"Premium custom sportswear & leather glove manufacturer"},
+    {name:"Tespoe Sports", category:"Apparel & Accessories", tagline:"Premier manufacturer of custom sportswear since 2017"},
+    {name:"Boslaser", category:"Beauty", tagline:"End-to-end medical aesthetics partner"},
+    {name:"Lefis", category:"Beauty", tagline:"Professional aesthetic devices for your need"},
+    {name:"Erisi Dynamics", category:"Beauty", tagline:"Pioneering clinically inspired exosome skincare"},
+    {name:"Foxen", category:"Beauty", tagline:"17+ years of excellence in 100% human hair manufacturing"},
+    {name:"Bingzee", category:"Beauty", tagline:"AI-driven custom personal care solutions"},
+    {name:"HH", category:"Beauty", tagline:"An industry leader in mid-to-high-end human hair products"},
+    {name:"Carbon composites specialist", category:"Chemicals", tagline:"High-performance carbon fiber composites specialist"},
+    {name:"Charming", category:"Commercial Equipment & Machinery", tagline:"23+ years manufacturing for high-end LED display screens"},
+    {name:"Seahisun", category:"Commercial Equipment & Machinery", tagline:"Smart food trailers, built for global streets"},
+    {name:"Xinflying", category:"Commercial Equipment & Machinery", tagline:"One-stop digital printing solution expert"},
+    {name:"Gowinpc", category:"Computer Hardware & Software", tagline:"Powering next-gen industrial computing innovation"},
+    {name:"Hightop Group", category:"Construction & Building Machinery", tagline:"Engineered solutions for modern construction"},
+    {name:"Nuoman", category:"Construction & Building Machinery", tagline:"Efficient compact equipment, built for urban jobsites"},
+    {name:"Zhongyudingli", category:"Construction & Building Machinery", tagline:"30+ years of proven leadership in smart crushing & green mining"},
+    {name:"Eachan", category:"Construction & Building Machinery", tagline:"Built on tradition, engineered for global sites"},
+    {name:"Luvindow", category:"Construction & Real Estate", tagline:"A trailblazer in the window and door industry"},
+    {name:"Derchi", category:"Construction & Real Estate", tagline:"A leading Chinese exporter in doors & windows"},
+    {name:"Wazzor", category:"Construction & Real Estate", tagline:"High-end doors & windows, engineered to perfection"},
+    {name:"Oron Deco", category:"Construction & Real Estate", tagline:"Flexible PVC film solutions with low MOQs"},
+    {name:"Binqi", category:"Consumer Electronics", tagline:"4G POC radio communication solutions provider"},
+    {name:"Huion", category:"Consumer Electronics", tagline:"Digital ink solutions provider: tech, make, trade & brand"},
+    {name:"EnHopeStar", category:"Consumer Electronics", tagline:"20-year OEM/ODM manufacturer for smart display solutions"},
+    {name:"SH-ABC", category:"Furniture", tagline:"Premium furniture hardware, manufactured for quality"},
+    {name:"Viet Duc", category:"Furniture", tagline:"Premium Vietnamese furniture manufacturer since 2006"},
+    {name:"VF Home Decor", category:"Furniture", tagline:"Luxury interior design & supply: furniture, tiles & bathrooms"},
+    {name:"HMG", category:"Gifts & Crafts", tagline:"14 years experience in custom popup paper solutions"},
+    {name:"Nuoou", category:"Health Care", tagline:"Global OEM/ODM for FDA-registered supplements"},
+    {name:"Emoka", category:"Health Care", tagline:"Pioneering wearable massage technology"},
+    {name:"VL Rehab", category:"Health Care", tagline:"Your strategic partner in smart rehab & medical devices"},
+    {name:"Biocchn", category:"Health Care", tagline:"A trusted nutritional supplement CDMO since 2000"},
+    {name:"Allbright", category:"Home & Garden", tagline:"Dedicated to the finished window covering industry since 1996"},
+    {name:"Orvetex", category:"Home & Garden", tagline:"Full-category home textiles, serving global brands"},
+    {name:"Honi", category:"Home & Garden", tagline:"Home textile leader by scale and innovation"},
+    {name:"Willow lifestyle products", category:"Home & Garden", tagline:"Innovative willow lifestyle products from China"},
+    {name:"GardenSun", category:"Home & Garden", tagline:"Warming the world with engineering excellence"},
+    {name:"Corten steel manufacturer", category:"Home & Garden", tagline:"Custom corten steel with low MOQ and rapid production"},
+    {name:"Novare", category:"Home & Garden", tagline:"20+ years barware glass manufacturer"},
+    {name:"Hardwood & Spirit", category:"Home & Garden", tagline:"Leading manufacturer of natural material handicrafts"},
+    {name:"Min Shan Long", category:"Home & Garden", tagline:"Factory-direct custom bamboo & wood, built for your brand"},
+    {name:"Scenta", category:"Home Appliances", tagline:"A complete provider of scent marketing solutions"},
+    {name:"Tongda", category:"Industrial Machinery", tagline:"Intelligent blow molding, reliable worldwide"},
+    {name:"TPET", category:"Industrial Machinery", tagline:"Pioneer of automated four-side sewing since 2009"},
+    {name:"Aiwei", category:"Industrial Machinery", tagline:"AI + intelligent manufacturing PU gasket machine since 2004"},
+    {name:"Xrong Packdriver", category:"Industrial Machinery", tagline:"Packaging equipment, boosting your profitability"},
+    {name:"Trisha Jewels", category:"Jewelry, Eyewear, Watches & Accessories", tagline:"High-end custom jewelry manufacturer & B2B partner"},
+    {name:"Infinity", category:"Jewelry, Eyewear, Watches & Accessories", tagline:"Premier manufacturer of high-end diamond & hip-hop jewelry"},
+    {name:"Premium jewelry maker", category:"Jewelry, Eyewear, Watches & Accessories", tagline:"Premium custom jewelry, masterfully made"},
+    {name:"KHW", category:"Luggage, Bags & Cases", tagline:"Premium bag innovator with patented eco-craftsmanship"},
+    {name:"Shiyang Jewel", category:"Luggage, Bags & Cases", tagline:"22-year expert in bag hardware, jewelry & fashion accessories"},
+    {name:"WEPAC", category:"Luggage, Bags & Cases", tagline:"Pioneering sustainable packaging solutions"},
+    {name:"Taidoc International", category:"Medical Devices & Supplies", tagline:"14 years of expertise in medical device exports"},
+    {name:"Exceed", category:"Metals & Alloys", tagline:"China's leading manufacturer of aluminum sheets and coils"},
+    {name:"Mom Love", category:"Mother, Kids & Toys", tagline:"15+ years manufacturer of baby, family & adult pajamas"},
+    {name:"XM Xiefa", category:"Packaging & Printing", tagline:"Precision vacuum-formed packaging for global brands"},
+    {name:"Choebe", category:"Packaging & Printing", tagline:"25-year export leader in custom packaging"},
+    {name:"Sowin Group", category:"Packaging & Printing", tagline:"Your integrated food packaging partner"},
+    {name:"TopsPak", category:"Packaging & Printing", tagline:"30 years of expertise in the food packaging industry"},
+    {name:"Minghui", category:"Packaging & Printing", tagline:"Silicone-coated release papers for global applications"},
+    {name:"XiangYu", category:"Packaging & Printing", tagline:"Trusted carton & flexible packaging partner"},
+    {name:"PT Packaging", category:"Packaging & Printing", tagline:"Strategic packaging partner for global brands"},
+    {name:"Sentai Printing", category:"Packaging & Printing", tagline:"20+ years of creative packaging expertise"},
+    {name:"Youyi Packaging & Plastic Film", category:"Packaging & Printing", tagline:"20-year expert in premium custom flexible packaging"},
+    {name:"Sengtor", category:"Sports & Entertainment", tagline:"Board game accessories, crafted since 1997"},
+    {name:"ZoShine", category:"Sports & Entertainment", tagline:"Global innovative OEM/ODM trampoline & swing manufacturer"},
+    {name:"Zhengjia (GKK)", category:"Sports & Entertainment", tagline:"Specialized manufacturer of baseball & sports equipment"},
+    {name:"Wolson", category:"Sports & Entertainment", tagline:"Expertly crafted fitness & snooker essentials"},
+    {name:"VoltraxEV", category:"Sports & Entertainment", tagline:"Premier source for authorized brand e-bikes & e-motorcycles"},
+    {name:"Usawegn", category:"Sports & Entertainment", tagline:"Integrated sports flooring & construction partner"},
+    {name:"Healy", category:"Sportswear & Outdoor Apparel", tagline:"One-stop supply chain solutions for global sportswear brands"},
+    {name:"Xystar", category:"Sportswear & Outdoor Apparel", tagline:"Pro custom sportswear for global brands & clubs"},
+    {name:"Mavic Sports", category:"Sportswear & Outdoor Apparel", tagline:"One-stop supplier for custom team uniforms"},
+    {name:"Race Sports", category:"Sportswear & Outdoor Apparel", tagline:"Your all-in-one custom sportswear partner"},
+    {name:"Builder", category:"Tools & Hardware", tagline:"US-stocked tools, crafted since 2005 for builders"},
+    {name:"Yujiekej", category:"Vehicle Parts & Accessories", tagline:"Next-gen vehicle electronics built for the extremes"},
+    {name:"Shift-Fit", category:"Vehicle Parts & Accessories", tagline:"Empowering global auto modification businesses"},
+    {name:"Simplywalk", category:"Vehicle Parts & Accessories", tagline:"Aluminum ramps for global accessibility solutions"},
+    {name:"Forgex Speed", category:"Vehicle Parts & Accessories", tagline:"Globally recognized for high-performance alloy wheels"},
+    {name:"Ejeas", category:"Vehicle Parts & Accessories", tagline:"21 years of smart communication for extreme sports"},
+    {name:"Masuma", category:"Vehicle Parts & Accessories", tagline:"Higher quality, better innovation"}
+  ];
+  var SUPPLIER_CATEGORIES = (function () {
+    var seen = {}, order = [];
+    SUPPLIERS.forEach(function (s) { if (!seen[s.category]) { seen[s.category] = 1; order.push(s.category); } });
+    return order;
+  })();
+
+  // Simple, transparent keyword-overlap matching — no black-box "AI score" claimed here.
+  // If nothing in the buyer's goals shares vocabulary with a supplier's category/tagline,
+  // we fall back to a small hand-picked set spanning different categories so the section
+  // isn't empty before any goals are set.
+  var STOPWORDS = {the:1,and:1,for:1,with:1,your:1,from:1,new:1,existing:1,line:1,category:1,show:1,general:1,market:1,find:1,check:1,out:1,vet:1,scope:1,partners:1,suppliers:1};
+  function normalizeWords(str) {
+    return (str || "").toLowerCase().match(/[a-z]{3,}/g) || [];
+  }
+  function goalKeywords(goals) {
+    var seen = {};
+    (goals || []).forEach(function (g) {
+      normalizeWords(g).forEach(function (w) { if (!STOPWORDS[w]) seen[w] = 1; });
+    });
+    return Object.keys(seen);
+  }
+  var FEATURED_STARTER_SUPPLIERS = ["Huion", "Orvetex", "Sowin Group", "Kokal Sports", "Trisha Jewels", "Healy"]
+    .map(function (n) { return SUPPLIERS.find(function (s) { return s.name === n; }); })
+    .filter(Boolean);
+
+  function topSupplierMatches(goals, n) {
+    var keywords = goalKeywords(goals);
+    if (!keywords.length) return FEATURED_STARTER_SUPPLIERS.slice(0, n);
+    var scored = SUPPLIERS.map(function (s) {
+      var text = (s.category + " " + s.tagline).toLowerCase();
+      var score = 0;
+      keywords.forEach(function (w) { if (text.indexOf(w) !== -1) score++; });
+      return { s: s, score: score };
+    }).filter(function (x) { return x.score > 0; }).sort(function (a, b) { return b.score - a.score; });
+    if (!scored.length) return FEATURED_STARTER_SUPPLIERS.slice(0, n);
+    return scored.slice(0, n).map(function (x) { return x.s; });
+  }
 
   var profile = null;
   var scans = [];
@@ -883,6 +1142,7 @@
     renderGoals();
     renderRecent();
     renderMeetings();
+    renderTopMatches();
   }
 
   // ---------------- My Meetings ----------------
@@ -988,6 +1248,136 @@
         '<span class="cl-text"><span class="cl-name">' + escapeHtml(l.name) + '</span>' +
         '<span class="cl-sub"> ' + escapeHtml(l.sub) + '</span></span></a>';
     }).join("");
+  }
+
+  // ---------------- Top Matches ----------------
+  function renderTopMatches() {
+    var box = $("match-row");
+    var eyebrow = $("match-eyebrow");
+    var caveat = $("match-caveat");
+    if (scans.length) {
+      eyebrow.textContent = "Top Matches";
+      caveat.textContent = "Ranked by Emblemic Score from what you've scanned";
+      var top = scans.slice()
+        .sort(function (a, b) { return (Number(b.score) || -1) - (Number(a.score) || -1); })
+        .slice(0, 5);
+      box.innerHTML = top.map(function (s) {
+        var scoreVal = Number(s.score);
+        var initials = (s.name || "?").trim().slice(0, 2).toUpperCase();
+        return '<div class="match-card">' +
+          '<div class="match-badge">' + escapeHtml(initials) + '</div>' +
+          '<div class="match-tag">' + (Number.isFinite(scoreVal) ? scoreVal + "% match" : "Scanned") + '</div>' +
+          '<div class="match-name">' + escapeHtml(s.name || "Unknown vendor") + '</div>' +
+          '<div class="match-sub">' + escapeHtml((s.orbs && s.orbs.product) || s.score_label || "") + '</div>' +
+          '<button class="match-meet" data-company="' + escapeHtml(s.name || "") + '">+ Meeting</button>' +
+        '</div>';
+      }).join("");
+    } else {
+      var goals = (profile && profile.goals) || [];
+      var hasSignal = goalKeywords(goals).length > 0;
+      eyebrow.textContent = hasSignal ? "Top Matches for your goals" : "Suggested suppliers";
+      caveat.textContent = hasSignal
+        ? "From the 200+ suppliers featured on the official CoCreate LA site, matched to your goals"
+        : "A few of the 200+ suppliers featured on the official CoCreate LA site — set your goals for a personalized pick";
+      var picks = topSupplierMatches(goals, 5);
+      box.innerHTML = picks.map(function (s) {
+        var initials = s.name.trim().slice(0, 2).toUpperCase();
+        return '<div class="match-card">' +
+          '<div class="match-badge">' + escapeHtml(initials) + '</div>' +
+          '<div class="match-tag">' + escapeHtml(s.category) + '</div>' +
+          '<div class="match-name">' + escapeHtml(s.name) + '</div>' +
+          '<div class="match-sub">' + escapeHtml(s.tagline) + '</div>' +
+          '<button class="match-meet" data-company="' + escapeHtml(s.name) + '">+ Meeting</button>' +
+        '</div>';
+      }).join("");
+    }
+    Array.prototype.forEach.call(box.querySelectorAll(".match-meet"), function (btn) {
+      btn.addEventListener("click", function () { openMeetingFormFor(btn.dataset.company); });
+    });
+  }
+
+  function openMeetingFormFor(company) {
+    switchTab("today");
+    $("meet-form-card").hidden = false;
+    $("meet-company").value = company || "";
+    $("meet-who").value = "";
+    $("meet-time").value = "";
+    $("meet-note").value = "";
+    setTimeout(function () {
+      $("meet-form-card").scrollIntoView({ behavior: "smooth", block: "center" });
+      $("meet-who").focus();
+    }, 50);
+  }
+
+  // ---------------- Supplier directory ----------------
+  function renderSupplierList(query) {
+    var q = (query || "").trim().toLowerCase();
+    var rows = !q ? SUPPLIERS : SUPPLIERS.filter(function (s) {
+      return (s.name + " " + s.category + " " + s.tagline).toLowerCase().indexOf(q) !== -1;
+    });
+    var box = $("supplier-list");
+    if (!rows.length) {
+      box.innerHTML = '<div class="empty-note">No suppliers match that search.</div>';
+      return;
+    }
+    box.innerHTML = rows.map(function (s) {
+      return '<div class="supplier-row">' +
+        '<div class="sr-top"><span class="sr-name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="sr-cat">' + escapeHtml(s.category) + '</span></div>' +
+        '<div class="sr-tagline">' + escapeHtml(s.tagline) + '</div>' +
+      '</div>';
+    }).join("");
+  }
+  $("supplier-toggle").addEventListener("click", function () {
+    var hidden = $("supplier-browser").hidden;
+    $("supplier-browser").hidden = !hidden;
+    $("supplier-toggle").textContent = hidden ? "Hide supplier list" : "Browse all suppliers";
+    if (hidden) renderSupplierList($("supplier-search").value);
+  });
+  $("supplier-search").addEventListener("input", function () { renderSupplierList($("supplier-search").value); });
+
+  // ---------------- Event view (Agenda / Community / Wrap Up) ----------------
+  function switchEventTab(name) {
+    Array.prototype.forEach.call(document.querySelectorAll(".event-subtab"), function (b) {
+      b.classList.toggle("active", b.dataset.eventTab === name);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".event-subview"), function (v) {
+      v.classList.toggle("active", v.id === "event-" + name);
+    });
+    if (name === "wrapup") renderWrapUp();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".event-subtab"), function (b) {
+    b.addEventListener("click", function () { switchEventTab(b.dataset.eventTab); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-goto-event]"), function (b) {
+    b.addEventListener("click", function () {
+      switchTab("event");
+      switchEventTab(b.dataset.gotoEvent);
+    });
+  });
+
+  function renderWrapUp() {
+    var scored = scans.map(function (s) { return Number(s.score); }).filter(function (n) { return Number.isFinite(n); });
+    var avgScore = scored.length ? Math.round(scored.reduce(function (a, b) { return a + b; }, 0) / scored.length) : null;
+    var topScan = scans.slice().sort(function (a, b) { return (Number(b.score) || -1) - (Number(a.score) || -1); })[0];
+    var confirmed = meetings.filter(function (m) { return m.status === "confirmed"; }).length;
+    var done = meetings.filter(function (m) { return m.status === "done"; }).length;
+
+    $("wrap-stats").innerHTML =
+      '<div class="wrap-stat"><div class="ws-num">' + scans.length + '</div><div class="ws-label">Booths scanned</div></div>' +
+      '<div class="wrap-stat"><div class="ws-num">' + (avgScore === null ? "—" : avgScore) + '</div><div class="ws-label">Avg. Emblemic Score</div></div>' +
+      '<div class="wrap-stat"><div class="ws-num">' + meetings.length + '</div><div class="ws-label">Meetings requested</div></div>' +
+      '<div class="wrap-stat"><div class="ws-num">' + (confirmed + done) + '</div><div class="ws-label">Confirmed or done</div></div>';
+
+    var topCard = $("wrap-top-card");
+    if (topScan && Number.isFinite(Number(topScan.score))) {
+      topCard.innerHTML = '<div class="eyebrow" style="margin-bottom:8px;">Your top match</div>' +
+        '<div class="rn-company" style="font-family:\'Space Mono\',monospace;font-weight:700;font-size:16px;">' + escapeHtml(topScan.name) + '</div>' +
+        '<div style="font-size:12.5px;color:var(--ink-dim);margin-top:4px;">' + escapeHtml(topScan.score_reasons || topScan.score_label || "") + '</div>';
+      topCard.hidden = false;
+    } else {
+      topCard.hidden = true;
+    }
   }
 
   // ---------------- Ask (Today quick brief) ----------------
@@ -1328,6 +1718,7 @@
     renderScheduleDays();
     renderSchedule();
     renderCommunity();
+    renderAgendaTilePreview();
     updateCountdown();
     setInterval(updateCountdown, 60000);
 
@@ -1340,11 +1731,23 @@
       scans = results[1] || [];
       meetings = results[2] || [];
       renderLog(); renderRecent();
-      if (!profile || (!profile.name && !(profile.goals || []).length)) {
+      // Setup/onboarding is a pre-show step — once the show has actually started, always land
+      // on the home screen instead, even for a profile that never finished onboarding.
+      var eventHasStarted = new Date() >= EVENT_START;
+      if (!eventHasStarted && (!profile || (!profile.name && !(profile.goals || []).length))) {
         showOnboard();
       }
       renderToday();
     });
+  }
+
+  function renderAgendaTilePreview() {
+    var day = new Date() >= EVENT_START ? (new Date().toDateString() === EVENT_START.toDateString() ? 1 : 2) : 1;
+    var items = SCHEDULE[day] || [];
+    if (items.length) {
+      $("tile-agenda-main").textContent = items[0].title;
+      $("tile-agenda-sub").textContent = "Day " + day + " · " + items.length + " sessions";
+    }
   }
 
   if (document.readyState === "loading") {
