@@ -278,6 +278,12 @@
     font-size: 19px; font-weight: 700; font-family: inherit; line-height: 1;
     display: flex; align-items: center; justify-content: center;
   }
+  .comm-copy-btn {
+    height: 34px; padding: 0 14px; border-radius: 17px; flex-shrink: 0;
+    background: var(--accent); color: var(--accent-ink); border: none; cursor: pointer;
+    font-size: 12.5px; font-weight: 600; font-family: inherit; line-height: 1;
+    display: flex; align-items: center; justify-content: center; white-space: nowrap;
+  }
 
   /* tradeshow community feed (shared across all Circuit workspaces) */
   .comm-post-list { display: flex; flex-direction: column; gap: 8px; }
@@ -991,7 +997,7 @@
     { icon: "📷", name: "Instagram", sub: "@alibaba.com_official", url: "https://www.instagram.com/alibaba.com_official/", social: "instagram" },
     { icon: "👥", name: "Facebook", sub: "Alibaba.com Global", url: "https://www.facebook.com/Alibaba.comGlobal/", social: "facebook" },
     { icon: "🌐", name: "Event site", sub: "alibabacocreate.com", url: "https://www.alibabacocreate.com/us" },
-    { icon: "✉️", name: "Event team", sub: "cocreate@service.alibaba.com", url: "mailto:cocreate@service.alibaba.com" }
+    { icon: "✉️", name: "Event team", sub: "cocreate@service.alibaba.com", url: "mailto:cocreate@service.alibaba.com", copy: "cocreate@service.alibaba.com" }
   ];
   var EVENT_HASHTAG = "#CoCreate2026";
 
@@ -1476,21 +1482,44 @@
   // ---------------- Community ----------------
   function renderCommunity() {
     $("comm-links").innerHTML = COMMUNITY_LINKS.map(function (l) {
-      var postBtn = l.social
+      var actionBtn = l.social
         ? '<button class="comm-post-btn" data-social="' + l.social + '" aria-label="Post to ' + escapeHtml(l.name) + '">+</button>'
+        : l.copy
+        ? '<button class="comm-copy-btn" data-copy="' + escapeHtml(l.copy) + '" aria-label="Copy ' + escapeHtml(l.name) + ' address">Copy</button>'
         : "";
       return '<div class="comm-link-row">' +
-        '<a class="comm-link" href="' + l.url + '" target="_blank" rel="noopener noreferrer">' +
+        '<a class="comm-link" href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener noreferrer">' +
           '<span class="cl-icon">' + l.icon + '</span>' +
           '<span class="cl-text"><span class="cl-name">' + escapeHtml(l.name) + '</span>' +
           '<span class="cl-sub"> ' + escapeHtml(l.sub) + '</span></span></a>' +
-        postBtn +
+        actionBtn +
       '</div>';
     }).join("");
     Array.prototype.forEach.call($("comm-links").querySelectorAll(".comm-post-btn"), function (btn) {
       btn.addEventListener("click", function (e) {
         e.preventDefault();
         openSocialComposer(btn.dataset.social);
+      });
+    });
+    Array.prototype.forEach.call($("comm-links").querySelectorAll(".comm-copy-btn"), function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        copyToClipboard(btn.dataset.copy, "Address copied");
+      });
+    });
+    // Installed/home-screen Circuit (iOS "Add to Home Screen" in particular) silently
+    // swallows target="_blank" clicks — there's no tab strip to open a new tab into, so
+    // the link just does nothing. Force it open with window.open, and if that's blocked
+    // or unsupported in this context, fall back to navigating the current view instead
+    // of leaving the tap looking like it did nothing.
+    Array.prototype.forEach.call($("comm-links").querySelectorAll(".comm-link"), function (a) {
+      var url = a.getAttribute("href");
+      if (!url || url.indexOf("mailto:") === 0) return;
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        var win = null;
+        try { win = window.open(url, "_blank", "noopener"); } catch (err) { win = null; }
+        if (!win) window.location.href = url;
       });
     });
   }
