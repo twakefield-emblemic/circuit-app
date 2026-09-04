@@ -255,6 +255,19 @@
   }
   .sched-info .st-title { font-weight: 600; font-size: 13.5px; }
   .sched-info .st-sub { font-size: 12px; color: var(--ink-dim); margin-top: 2px; line-height: 1.4; }
+  .sched-track {
+    font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--accent); margin: 16px 0 2px;
+  }
+  .sched-track:first-child { margin-top: 4px; }
+  .sched-rec-list { display: flex; flex-direction: column; }
+  .sched-rec-item { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .sched-rec-item:last-child { border-bottom: none; padding-bottom: 2px; }
+  .sched-rec-when {
+    font-family: "Space Mono", monospace; font-size: 11px; color: var(--ink-faint);
+    width: 68px; flex-shrink: 0; padding-top: 1px;
+  }
+  .sched-rec-why { font-size: 11.5px; color: var(--accent); margin-top: 3px; font-weight: 600; }
 
   /* community */
   .comm-links { display: flex; flex-direction: column; gap: 8px; }
@@ -844,6 +857,11 @@
       </div>
 
       <div class="event-subview active" id="event-agenda">
+        <div class="card" id="sched-rec-card" hidden>
+          <div class="eyebrow" style="margin-bottom:4px;">Recommended for your goals</div>
+          <div class="caveat" style="margin:0 0 10px;">Picked from the full agenda against the goals set for every company you're representing</div>
+          <div class="sched-rec-list" id="sched-rec-list"></div>
+        </div>
         <div class="card">
           <div class="ask-suggest" id="sched-days"></div>
           <div class="sched-list" id="sched-list"></div>
@@ -978,20 +996,152 @@
     { key: "why_follow_up", label: "Worth a look" }
   ];
 
-  // Real published agenda items only — CoCreate LA hasn't published per-session times
-  // as of this build, so times show "TBA" rather than guessing. Source: alibabacocreate.com.
+  // Full published agenda, captured by hand from alibabacocreate.com/us/agenda (session
+  // titles, times, and speakers are theirs, not invented). Grouped by track in the same
+  // order the source page uses — Main Stage first, then the breakout Labs — and chronological
+  // within each track; renderSchedule() below prints a track divider whenever `track` changes
+  // from the previous item, and the flat per-day order here is what drives that. An empty
+  // `track` marks a whole-venue item (registration, meals) that isn't part of any single track.
   var SCHEDULE = {
     1: [
-      { time: "TBA", title: "Alibaba.com Global Launch", sub: "Unveiling Accio Work — their AI-powered global e-commerce platform" },
-      { time: "TBA", title: "Business Transformation", sub: "“From the Court to a Billion-Dollar Empire”, featuring Magic Johnson" },
-      { time: "TBA", title: "SMB AI Transformation Summit", sub: "Future-proofing supply chains for North American brands" },
-      { time: "TBA", title: "CoCreate Match", sub: "1:1 networking with industry leaders and potential partners" }
+      { time: "8:30 AM", track: "", title: "Doors Open & Registration", sub: "" },
+      { time: "9:20 AM", track: "Main Stage: Make It Real", title: "Make It Real: Now is the Best Time in History to Build", sub: "Welcome — Rah Mahtani (Head of US Marketing & Commercial Strategy, Alibaba.com); Elizabeth Field DiGiovanni (CEO & Founder, Parcel Air)" },
+      { time: "9:50 AM", track: "Main Stage: Make It Real", title: "Make It Real", sub: "Keynote — Kuo Zhang (President, Alibaba.com); Chris Kuo (GM, Alibaba.com Americas); Takis Georgakopoulos (CEO, Fiserv); Zoe (Zappitell) Lu (EVP, Helium10)" },
+      { time: "10:50 AM", track: "Main Stage: Make It Real", title: "Make It Happen: A Founder's Playbook for Building Brands in the AI Era", sub: "Panel — Hamza Naqvi (2x Shark Tank Founder; Co-Founder, Amplify); Kent Yoshimura (Co-Founder & CEO, Neuro); Sergio Tache (Founder & CEO, Dossier); Melonie Carnegie (CEO, Growvana)" },
+      { time: "11:25 AM", track: "Main Stage: Make It Real", title: "‘Make It Real’ How to WIN in Business", sub: "Keynote — Earvin “Magic” Johnson (Chairman & CEO, Magic Johnson Enterprises; 2x NBA Hall of Famer)" },
+
+      { time: "1:20 PM", track: "Lab 1: The Future Supply Chain", title: "How Real Founders are Trading Retainers for AI Agents", sub: "Keynote — Lana Hout & Aisha Corpas Wynn (Co-Hosts, AI Chicks Podcast); Joshua Stancle (Founder & CEO, Clean Saint LLC); Elizabeth Field DiGiovanni (CEO & Founder, Parcel Air)" },
+      { time: "1:50 PM", track: "Lab 1: The Future Supply Chain", title: "Profiting Through Product Personalization", sub: "Keynote — Thomas Unterseher (Co-founder, One World Direct)" },
+      { time: "2:10 PM", track: "Lab 1: The Future Supply Chain", title: "Navigating a Changing Trade Landscape", sub: "Panel — A working session for LA's micro, small, and medium businesses. Maria Salinas (President & CEO, LA Area Chamber of Commerce); Stephen Cheung (President, LA Economic Development Office & World Trade Center LA)" },
+      { time: "2:40 PM", track: "Lab 1: The Future Supply Chain", title: "Trade Assurance: Bulletproofing your trades and buyer protections in 2026", sub: "Keynote — Yiran Li (Head of B2B financing solution, Alibaba.com)" },
+      { time: "3:00 PM", track: "Lab 1: The Future Supply Chain", title: "Scaling from Product Launch to Brand Growth", sub: "Keynote — Steven Blustein (Co-Founder & CEO, Product&Brands™)" },
+      { time: "3:20 PM", track: "Lab 1: The Future Supply Chain", title: "Alibaba Payment Terms: Smart Capital Strategy for Growth", sub: "Keynote — Yiran Li (Alibaba.com); Rayner Turley (Tech Partnerships Lead, Balance); Sophie Wang (Partnership Lead, Slope); Jacob Osborne (Founder & CEO, Global Parts Supply LLC / Supplying Demand)" },
+      { time: "3:50 PM", track: "Lab 1: The Future Supply Chain", title: "Supplier Flash Pitches", sub: "Six back-to-back flash pitches (3:50–4:40) — Alibaba.com suppliers showcase their newest products" },
+
+      { time: "1:30 PM", track: "Lab 2: Agentic Business Masterclass", title: "The 1-Person Empire: Automating Growth with Accio Work", sub: "Keynote — Tia Ellis (Retail Pitch Expert; Founder, Wildflower Insight)" },
+      { time: "1:50 PM", track: "Lab 2: Agentic Business Masterclass", title: "Accio Work Unpacked: Where All Things Ecommerce Come Together", sub: "Demo — Ziwei Chen (Product Marketing Lead of Accio, Alibaba.com)" },
+      { time: "2:20 PM", track: "Lab 2: Agentic Business Masterclass", title: "From Prompt to Production", sub: "Panel — How product businesses are actually putting AI to work. Amy Wees (CEO, Amazing at Home eCommerce Consulting); Molly Mahoney (Founder & CEO, The Prepared Performer); Andrew Erickson (Co-Founder, InventoryHero)" },
+      { time: "2:50 PM", track: "Lab 2: Agentic Business Masterclass", title: "The Creator to Commerce Pipeline", sub: "Panel — Building product brands in the creator economy. Gracey Ryback (Creator, Influencer Marketing Expert & Founder, SparkTok); Patrick Israel (Founder & CEO, Xtend Creators; Co-Founder, CreatorHub Live)" },
+      { time: "3:20 PM", track: "Lab 2: Agentic Business Masterclass", title: "‘Omnichannel by Design.’ How the world's fastest-growing brands bridge the gap between digital and physical shelves.", sub: "Keynote — Brian Moran" },
+      { time: "3:40 PM", track: "Lab 2: Agentic Business Masterclass", title: "AI-Powered Social Commerce: The Next 10X Growth Opportunity", sub: "Keynote — Can Chan (Founder, TopTier League & TopTier Summit)" },
+      { time: "4:00 PM", track: "Lab 2: Agentic Business Masterclass", title: "Keynote Session (TBA)", sub: "Speaker to be announced" },
+      { time: "4:20 PM", track: "Lab 2: Agentic Business Masterclass", title: "The TikTok Breakthrough: Mastering Shop and Ads for Rapid Retail Growth", sub: "Keynote — Andrew Brindle (VP of Business Development, Bellnova)" },
+      { time: "4:50 PM", track: "Lab 2: Agentic Business Masterclass", title: "Automating E-Commerce Growth with Accio Work x Helium 10", sub: "Keynote — Carrie Miller (Education and Strategy Manager, Helium10)" },
+
+      { time: "1:30 PM", track: "Lab 3: Ask Me Anything", title: "Championship Supply Chains: Sourcing Secrets from the NBA and Olympics", sub: "AMA Hub — Kian Golzari (Founder, Sourcing with Kian)" },
+      { time: "2:15 PM", track: "Lab 3: Ask Me Anything", title: "Professional Buyers + Accio Best Use Cases", sub: "AMA Hub" },
+      { time: "3:05 PM", track: "Lab 3: Ask Me Anything", title: "The Female Founder Meetup: Scaling Brands, Capital, and Community", sub: "AMA Hub — Jennifer Morris (Founder, Ship Happens); Susie Levitt (Founder, Susie Levitt Consulting); Kendra Bracken-Ferguson (Co-Founder, LumiNicole)" },
+      { time: "4:00 PM", track: "Lab 3: Ask Me Anything", title: "Influencer Hub Check-in", sub: "Turn your social presence into global influence — on-site check-in for the Influencer Hub" },
+      { time: "4:40 PM", track: "Lab 3: Ask Me Anything", title: "Beyond the Feed: Turning Influence into Lasting Brands, Shows, and Companies", sub: "Barry Poznick (Executive Producer, Shark Tank & The Voice; Founder, Idea Maze Entertainment); Gloria Zhu (Founder & Investor, Bearcat)" },
+
+      { time: "12:00 PM", track: "", title: "Lunch", sub: "VIP Pass — VIP Lounge (Spot 17 on map)" },
+      { time: "3:00 PM", track: "", title: "Coffee & Refreshments", sub: "Premium & VIP Pass — Refreshment Area (Spot 18 on map)" },
+      { time: "6:00 PM", track: "", title: "Gala Dinner", sub: "By invitation only / VIP Pass, 6:00–9:00 PM — Platinum Ballroom, JW Marriott LA Live. Shuttle from LACC South Hall entrance at 5:30, 5:45, 6:00 & 6:30 PM" }
     ],
     2: [
-      { time: "TBA", title: "Innovation Salon", sub: "Digital transformation insights, featuring DHL, Fiserv, and Shark Tank" },
-      { time: "TBA", title: "CoCreate Pitch Finals", sub: "$1M+ prize pool — billed as the world's largest product-based startup competition" }
+      { time: "9:50 AM", track: "Main Stage: Make It Real", title: "Welcome Back to Day 2 of CoCreate", sub: "Welcome — Rah Mahtani (Head of US Marketing & Commercial Strategy, Alibaba.com)" },
+      { time: "10:00 AM", track: "Main Stage: Make It Real", title: "From the Tank to the Tech", sub: "Fireside Chat — Perfecting the pitch and AI with Shark Tank's EP. Alex Tsai (Head of Strategic Partnerships, Alibaba.com); Barry Poznick (Executive Producer, Shark Tank & The Voice)" },
+      { time: "10:50 AM", track: "Main Stage: Make It Real", title: "Cross-Border and Domestic Logistics Solutions for Buyers in the U.S.", sub: "Keynote — Jason Xu (GM, TWTH Express Inc)" },
+      { time: "11:10 AM", track: "Main Stage: Make It Real", title: "The Startup Blueprint: Why Now is the Best Time to Build Your Brand", sub: "Panel — Rob Cooper (President, Solgaard); Adrian Solgaard (Founder & CEO, Solgaard); Julia Menez & Russell Menez (Cozy Foods); Zechariah Thomas (CEO & Founder, Swift Hockey)" },
+      { time: "1:00 PM", track: "Main Stage: Make It Real", title: "The $200K Payoff: Inside the Post-Win Growth Story with Pitch Champions", sub: "Highlight — Everette Taylor (CEO, Kickstarter); Christian Reed (Founder & CEO, Reekon Tools); Harrison Nott (Founder & CEO, CoolTowel)" },
+      { time: "1:30 PM", track: "Main Stage: Make It Real", title: "Marcus Lemonis & School of Hard Knocks", sub: "Fireside Chat — Building a brand consumers love and buyers value. Marcus Lemonis (TV Personality, Entrepreneur & Host of The Fixer); James Dumoulin (Founder, School of Hard Knocks)" },
+      { time: "2:00 PM", track: "Main Stage: Make It Real", title: "Shiza Shahid & The Koerner Office", sub: "Fireside Chat — How Shiza Shahid built a global household name. Shiza Shahid (Co-Founder & Co-CEO, Our Place); Chris Koerner (Founder, Investor & Entrepreneur)" },
+      { time: "2:45 PM", track: "Main Stage: Make It Real", title: "The CoCreate Pitch US Final", sub: "Competition — Top 20 finalists. Judges: Mike McClary (CEO, Amazing.com), Marcus Lemonis, Everette Taylor, Shiza Shahid, David Rogier (Founder & CEO, MasterClass), Barry Poznick" },
+      { time: "4:45 PM", track: "Main Stage: Make It Real", title: "AI Transformation and the Future of Doing Business", sub: "Keynote — David Rogier (Founder & CEO, MasterClass)" },
+      { time: "5:05 PM", track: "Main Stage: Make It Real", title: "Award Ceremony — THE WINNERS of CoCreate Pitch 2026", sub: "Judges: Mike McClary, Marcus Lemonis, Everette Taylor, Shiza Shahid, David Rogier, Barry Poznick" },
+      { time: "5:30 PM", track: "Main Stage: Make It Real", title: "Closing Address", sub: "Rah Mahtani (Head of US Marketing & Commercial Strategy, Alibaba.com)" },
+
+      { time: "10:00 AM", track: "Lab 1: Operational Excellence", title: "From Port to Porch: Automating Your Fulfillment Infrastructure with AI", sub: "Keynote — Gori Company Team" },
+      { time: "11:00 AM", track: "Lab 1: Operational Excellence", title: "Closer Collaboration to Curb Copying", sub: "Keynote — The Alibaba approach to IPR protection. Dr. Xinghao Wang, Evan Williams & Jasmine Xu (Global IP Enforcement, Alibaba International); Michael Benarde (Co-Founder & President, NightCap)" },
+      { time: "11:30 AM", track: "Lab 1: Operational Excellence", title: "The Inventor's AI Toolkit: Real Methods, Real Prompts, Real Results", sub: "Panel — Carmine Denisco (President, United Inventors Association); Greg Rollett (President, Grommet)" },
+
+      { time: "10:00 AM", track: "Lab 2: The Future Stack", title: "Welcome to the Era of Agentic Commerce", sub: "Keynote — Alec Valiev (Strategic Growth Team Lead, Adyen)" },
+      { time: "10:20 AM", track: "Lab 2: The Future Stack", title: "Starting an Ecommerce Brand in 2026", sub: "Keynote — Rohit Kumar; Harrison Nott" },
+      { time: "10:40 AM", track: "Lab 2: The Future Stack", title: "Scaling Sourcing and Working Capital with Clover x Accio Work", sub: "Keynote — Sanjay Saraf (SVP Global Chief Product Officer, Clover)" },
+      { time: "11:00 AM", track: "Lab 2: The Future Stack", title: "How Sellers Run on Agentic AI", sub: "Demo — Tim Jordan (Ecom Expert & Community Leader); Marcel Macedo (Founder, Oria Meds); Filip Momcilovic (Founder, Nula Labs)" },
+      { time: "11:40 AM", track: "Lab 2: The Future Stack", title: "The Omnichannel Engine: Mastering Amazon, TikTok Shop, Walmart, and Beyond", sub: "Panel — Vincenzo Toscano (Founder & CEO, Ecomcy); Corey Brown (VP of Client Growth, Kwontified); Susie Levitt (Founder, Susie Levitt Consulting); The Sourcing Guy" },
+
+      { time: "11:00 AM", track: "AMA Hub", title: "Black-Owned Business Meetup: Sourcing, Scaling, and Building Wealth", sub: "AMA — Darrell Spencer (CEO, Crowned Skin); John Lawson (President, ColderICE Media); Dionne Ellison (Founder & CEO, VULIWEAR®)" },
+
+      { time: "12:00 PM", track: "", title: "Lunch Break", sub: "" },
+      { time: "1:00 PM", track: "", title: "Happy Hour", sub: "" },
+      { time: "6:00 PM", track: "", title: "Official Close of CoCreate 2026", sub: "" }
     ]
   };
+
+  // Flat title → {day, ...item} lookup used by the goal-based session recommender below.
+  var SCHEDULE_BY_TITLE = (function () {
+    var map = {};
+    [1, 2].forEach(function (day) {
+      SCHEDULE[day].forEach(function (item) { map[item.title] = Object.assign({ day: day }, item); });
+    });
+    return map;
+  })();
+
+  // Hand-mapped from each goal phrase to the sessions on the real published agenda that most
+  // directly serve it (best match first) — goal text is short (a few words from a fixed
+  // checklist, or a one-off custom phrase), too little shared vocabulary with a session title
+  // for keyword overlap (like the supplier matcher above) to work reliably, so this maps by
+  // the goal's actual text instead. A goal not listed here (a custom one we haven't mapped)
+  // just contributes no pick — never guessed at.
+  var SESSION_GOAL_MATCHES = {
+    "Find new manufacturing partners": ["Championship Supply Chains: Sourcing Secrets from the NBA and Olympics", "Cross-Border and Domestic Logistics Solutions for Buyers in the U.S."],
+    "Vet suppliers for an existing line": ["Trade Assurance: Bulletproofing your trades and buyer protections in 2026", "Closer Collaboration to Curb Copying"],
+    "Scope competitors in my category": ["The Startup Blueprint: Why Now is the Best Time to Build Your Brand", "The Omnichannel Engine: Mastering Amazon, TikTok Shop, Walmart, and Beyond"],
+    "Check out the CoCreate Pitch showcase": ["The CoCreate Pitch US Final", "The $200K Payoff: Inside the Post-Win Growth Story with Pitch Champions"],
+    "General market recon": ["Make It Real", "AI Transformation and the Future of Doing Business"],
+    "Look for potential partners that need brand promotion and marketing": ["‘Omnichannel by Design.’ How the world's fastest-growing brands bridge the gap between digital and physical shelves.", "AI-Powered Social Commerce: The Next 10X Growth Opportunity", "Beyond the Feed: Turning Influence into Lasting Brands, Shows, and Companies"]
+  };
+
+  function parseSchedTimeToMinutes(t) {
+    var m = /^(\d{1,2}):(\d{2})\s*(AM|PM)/i.exec((t || "").trim());
+    if (!m) return 0;
+    var h = parseInt(m[1], 10) % 12;
+    if (/pm/i.test(m[3])) h += 12;
+    return h * 60 + parseInt(m[2], 10);
+  }
+
+  // Diversity-first session recommender: every goal the buyer has set, across every company
+  // they're representing (not just the one currently active — this list isn't meant to change
+  // when they flip the Representing switcher), gets one pick before any goal gets a second —
+  // so five slots don't collapse into five picks for a single goal that happens to have the
+  // most candidate sessions mapped to it.
+  function recommendedSessions(n) {
+    var companies = (profile && profile.companies) || [];
+    var goalOrder = [], goalCompanies = {};
+    companies.forEach(function (c) {
+      (c.goals || []).forEach(function (g) {
+        if (!goalCompanies[g]) { goalCompanies[g] = []; goalOrder.push(g); }
+        if (goalCompanies[g].indexOf(c.name) === -1) goalCompanies[g].push(c.name);
+      });
+    });
+
+    var picks = [], usedTitles = {}, cursor = {};
+    goalOrder.forEach(function (g) { cursor[g] = 0; });
+    var progressed = true;
+    while (picks.length < n && progressed) {
+      progressed = false;
+      for (var i = 0; i < goalOrder.length && picks.length < n; i++) {
+        var g = goalOrder[i];
+        var candidates = SESSION_GOAL_MATCHES[g] || [];
+        while (cursor[g] < candidates.length && usedTitles[candidates[cursor[g]]]) cursor[g]++;
+        if (cursor[g] < candidates.length) {
+          var title = candidates[cursor[g]];
+          usedTitles[title] = true;
+          cursor[g]++;
+          picks.push({ title: title, goal: g, companies: goalCompanies[g] });
+          progressed = true;
+        }
+      }
+    }
+
+    return picks.map(function (p) {
+      var item = SCHEDULE_BY_TITLE[p.title];
+      return item ? Object.assign({}, item, { matchGoal: p.goal, matchCompanies: p.companies }) : null;
+    }).filter(Boolean).sort(function (a, b) {
+      return a.day - b.day || parseSchedTimeToMinutes(a.time) - parseSchedTimeToMinutes(b.time);
+    });
+  }
 
   var COMMUNITY_LINKS = [
     { icon: "📷", name: "Instagram", sub: "@alibaba.com_official", url: "https://www.instagram.com/alibaba.com_official/", social: "instagram" },
@@ -1472,10 +1622,34 @@
   }
   function renderSchedule() {
     var items = SCHEDULE[scheduleDay] || [];
+    var lastTrack = null;
     $("sched-list").innerHTML = items.map(function (it) {
-      return '<div class="sched-item"><div class="sched-time">' + escapeHtml(it.time) + '</div>' +
+      var divider = "";
+      if (it.track && it.track !== lastTrack) {
+        divider = '<div class="sched-track">' + escapeHtml(it.track) + '</div>';
+      }
+      lastTrack = it.track;
+      return divider +
+        '<div class="sched-item"><div class="sched-time">' + escapeHtml(it.time) + '</div>' +
         '<div class="sched-info"><div class="st-title">' + escapeHtml(it.title) + '</div>' +
-        '<div class="st-sub">' + escapeHtml(it.sub) + '</div></div></div>';
+        (it.sub ? '<div class="st-sub">' + escapeHtml(it.sub) + '</div>' : '') + '</div></div>';
+    }).join("");
+  }
+
+  // ---------------- Recommended sessions (goal-based) ----------------
+  function renderRecommendedSessions() {
+    var card = $("sched-rec-card");
+    var recs = recommendedSessions(5);
+    if (!recs.length) { card.hidden = true; $("sched-rec-list").innerHTML = ""; return; }
+    card.hidden = false;
+    $("sched-rec-list").innerHTML = recs.map(function (r) {
+      var companyTag = r.matchCompanies.length > 1 ? r.matchCompanies.join(" & ") : r.matchCompanies[0];
+      return '<div class="sched-rec-item">' +
+        '<div class="sched-rec-when">Day ' + r.day + ' &middot; ' + escapeHtml(r.time) + '</div>' +
+        '<div class="sched-info"><div class="st-title">' + escapeHtml(r.title) + '</div>' +
+        (r.track ? '<div class="st-sub">' + escapeHtml(r.track) + '</div>' : '') +
+        '<div class="sched-rec-why">For &ldquo;' + escapeHtml(r.matchGoal) + '&rdquo; &mdash; ' + escapeHtml(companyTag) + '</div>' +
+        '</div></div>';
     }).join("");
   }
 
@@ -1874,6 +2048,7 @@
     });
     if (name === "wrapup") renderWrapUp();
     if (name === "community") loadCommunityPosts();
+    if (name === "agenda") renderRecommendedSessions();
   }
   Array.prototype.forEach.call(document.querySelectorAll(".event-subtab"), function (b) {
     b.addEventListener("click", function () { switchEventTab(b.dataset.eventTab); });
@@ -2390,14 +2565,18 @@
         showOnboard();
       }
       renderToday();
+      renderRecommendedSessions();
     });
   }
 
   function renderAgendaTilePreview() {
     var day = new Date() >= EVENT_START ? (new Date().toDateString() === EVENT_START.toDateString() ? 1 : 2) : 1;
     var items = SCHEDULE[day] || [];
-    if (items.length) {
-      $("tile-agenda-main").textContent = items[0].title;
+    // Skip whole-venue logistics items (doors open, meals) for the headline — lead with the
+    // first actual session of the day.
+    var first = items.filter(function (it) { return it.track; })[0] || items[0];
+    if (first) {
+      $("tile-agenda-main").textContent = first.title;
       $("tile-agenda-sub").textContent = "Day " + day + " · " + items.length + " sessions";
     }
   }
