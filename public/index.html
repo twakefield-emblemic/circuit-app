@@ -415,6 +415,17 @@
   .event-subview { display: none; flex-direction: column; gap: 16px; }
   .event-subview.active { display: flex; }
 
+  /* log view sub-tabs (Vendors / People) — same look as event-subtabs above, kept as its
+     own class so it doesn't share that global click listener */
+  .log-subtabs { display: flex; gap: 6px; border-bottom: 1px solid var(--line); margin-bottom: 12px; }
+  .log-subtab {
+    background: none; border: none; font-family: inherit; font-size: 13px; font-weight: 700;
+    color: var(--ink-faint); padding: 9px 4px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .log-subtab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .log-subview { display: none; flex-direction: column; gap: 16px; }
+  .log-subview.active { display: flex; }
+
   /* wrap up */
   .wrap-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .wrap-stat {
@@ -873,14 +884,24 @@
 
     <!-- SCAN -->
     <section class="view" id="view-scan">
-      <div class="eyebrow">Scan a booth</div>
+      <div class="eyebrow" id="scan-eyebrow">Scan a booth</div>
+      <div class="ask-suggest" id="scan-mode-toggle" style="margin-bottom:12px;"></div>
       <div id="scan-body"></div>
     </section>
 
     <!-- LOG -->
     <section class="view" id="view-log">
       <div class="eyebrow">Everyone you've scanned</div>
-      <div id="log-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+      <div class="log-subtabs" id="log-subtabs">
+        <button class="log-subtab active" data-log-tab="vendors">Vendors</button>
+        <button class="log-subtab" data-log-tab="people">People</button>
+      </div>
+      <div class="log-subview active" id="log-vendors">
+        <div id="log-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+      </div>
+      <div class="log-subview" id="log-people">
+        <div id="peer-log-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+      </div>
     </section>
 
     <!-- EVENT -->
@@ -957,6 +978,10 @@
           </div>
         </div>
       </div>
+
+      <div class="eyebrow" style="margin-top:4px;">Who's scanned you</div>
+      <div class="caveat" style="margin:0 0 10px;">Real scans of you by name, from anyone else using Circuit &mdash; not simulated, so it may be sparse.</div>
+      <div id="me-received-list" style="margin-bottom:4px;"></div>
 
       <div class="eyebrow" style="margin-top:4px;">Companies at this show</div>
       <div class="caveat" style="margin:0 0 12px;">Each has its own goals &mdash; switch which one you're representing from the home screen.</div>
@@ -1066,6 +1091,14 @@
     { key: "find_them",     label: "Find them" },
     { key: "news",          label: "Latest buzz" },
     { key: "why_follow_up", label: "Worth a look" }
+  ];
+  // Attendee <-> attendee scans identify a PERSON, not a company — same 4-field shape
+  // identifyLead/identifyPeer both return.
+  var PEER_ORB_FIELDS = [
+    { key: "detail",       label: "Role" },
+    { key: "background",   label: "Background" },
+    { key: "find_them",    label: "Find them" },
+    { key: "why_follow_up", label: "Why connect" }
   ];
 
   // Full published agenda, captured by hand from alibabacocreate.com/us/agenda (session
@@ -1357,9 +1390,15 @@
 
   var profile = null;
   var scans = [];
+  var peerScans = [];
+  var peerReceivedScans = [];
   var meetings = [];
   var scheduleDay = 1;
   var pendingImageFile = null;
+  // "vendor" (default, existing flow) or "attendee" (peer-to-peer) — which the Scan tab's
+  // camera flow is currently pointed at. Snapshotted onto lastResult at identify time so a
+  // toggle flip mid-flow can't mislabel an in-progress result.
+  var scanMode = "vendor";
 
   // ---------------- Companies (representing more than one at the show) ----------------
   function newCompanyId() { return "company-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -2523,13 +2562,37 @@
   }
 
   // ---------------- Scan flow ----------------
+  function renderScanModeToggle() {
+    var box = $("scan-mode-toggle");
+    box.innerHTML = "";
+    [{ v: "vendor", label: "Vendor / Exhibitor" }, { v: "attendee", label: "Fellow attendee" }].forEach(function (m) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "rep-chip" + (scanMode === m.v ? " on" : "");
+      b.textContent = m.label;
+      b.addEventListener("click", function () {
+        if (scanMode === m.v) return;
+        scanMode = m.v;
+        pendingImageFile = null;
+        lastResult = null;
+        renderScanModeToggle();
+        renderScanIdle();
+      });
+      box.appendChild(b);
+    });
+  }
+
   function renderScanIdle() {
+    $("scan-eyebrow").textContent = scanMode === "attendee" ? "Scan a fellow attendee" : "Scan a booth";
+    var hint = scanMode === "attendee"
+      ? "Snap their badge, business card, or just the person. Claude will identify them, search for what's public, and score the connection against your goals."
+      : "Snap the vendor's logo, booth sign, or business card. Claude will identify it, search for what's current, and lay out five quick takeaways.";
     $("scan-body").innerHTML =
       '<div class="scan-stage">' +
         '<button class="camera-btn" id="scan-camera-btn">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2"/><circle cx="12" cy="12" r="3.5"/></svg>' +
         '</button>' +
-        '<div class="hint">Snap the vendor\'s logo, booth sign, or business card. Claude will identify it, search for what\'s current, and lay out five quick takeaways.</div>' +
+        '<div class="hint">' + hint + '</div>' +
         '<input type="file" id="scan-file-input" accept="image/*" capture="environment" hidden>' +
       '</div>';
     var btn = $("scan-camera-btn");
@@ -2563,23 +2626,41 @@
 
     var form = new FormData();
     form.append("photo", pendingImageFile);
+    var mode = scanMode;
 
-    api("/api/scan", { method: "POST", body: form })
+    var endpoint = mode === "attendee" ? "/api/peer-scan" : "/api/scan";
+    api(endpoint, { method: "POST", body: form })
       .then(function (data) {
-        lastResult = {
-          name: data.company_name || "Unidentified vendor",
-          confidence: data.confidence || "unknown",
-          orbs: {
-            product: data.product || "",
-            market: data.market || "",
-            find_them: data.find_them || "",
-            news: data.news || "",
-            why_follow_up: data.why_follow_up || ""
-          },
-          score: Number.isFinite(data.score) ? data.score : null,
-          scoreLabel: data.score_label || "",
-          scoreReasons: data.score_reasons || ""
-        };
+        lastResult = mode === "attendee"
+          ? {
+              type: "attendee",
+              name: data.name || "Unidentified",
+              confidence: data.confidence || "unknown",
+              orbs: {
+                detail: data.detail || "",
+                background: data.background || "",
+                find_them: data.find_them || "",
+                why_follow_up: data.why_follow_up || ""
+              },
+              score: Number.isFinite(data.score) ? data.score : null,
+              scoreLabel: data.score_label || "",
+              scoreReasons: data.score_reasons || ""
+            }
+          : {
+              type: "vendor",
+              name: data.company_name || "Unidentified vendor",
+              confidence: data.confidence || "unknown",
+              orbs: {
+                product: data.product || "",
+                market: data.market || "",
+                find_them: data.find_them || "",
+                news: data.news || "",
+                why_follow_up: data.why_follow_up || ""
+              },
+              score: Number.isFinite(data.score) ? data.score : null,
+              scoreLabel: data.score_label || "",
+              scoreReasons: data.score_reasons || ""
+            };
         renderScanResult();
       })
       .catch(function (e) { renderScanError(e); });
@@ -2629,7 +2710,9 @@
 
   function renderScanResult() {
     var r = lastResult;
-    var cardsHtml = ORB_FIELDS.map(function (f) {
+    var isPeer = r.type === "attendee";
+    var fields = isPeer ? PEER_ORB_FIELDS : ORB_FIELDS;
+    var cardsHtml = fields.map(function (f) {
       var text = r.orbs[f.key] || "—";
       return '<div class="orb-card">' +
         '<div class="orb-badge"></div>' +
@@ -2646,7 +2729,7 @@
       '<div class="card flush" style="padding:2px 16px;">' + cardsHtml + '</div>' +
       '<div class="field">' +
         '<label class="field-label" for="scan-note">Your note (optional)</label>' +
-        '<textarea id="scan-note" rows="2" placeholder="e.g. Booth 214, ask for Mei re: MOQs"></textarea>' +
+        '<textarea id="scan-note" rows="2" placeholder="' + (isPeer ? "e.g. Met at the CoCreate Pitch showcase, follow up re: intro" : "e.g. Booth 214, ask for Mei re: MOQs") + '"></textarea>' +
       '</div>' +
       '<div class="btn-row">' +
         '<button class="btn btn-ghost" id="scan-discard">Discard</button>' +
@@ -2661,19 +2744,22 @@
   function saveScan() {
     var note = $("scan-note").value.trim();
     var company = activeCompany();
+    var isPeer = lastResult.type === "attendee";
     var entry = {
       name: lastResult.name, confidence: lastResult.confidence, orbs: lastResult.orbs, note: note,
       score: lastResult.score, scoreLabel: lastResult.scoreLabel, scoreReasons: lastResult.scoreReasons,
       companyContext: (company && company.name) || ""
     };
-    api("/api/scans", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(entry) })
+    var endpoint = isPeer ? "/api/peer-scans" : "/api/scans";
+    api(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(entry) })
       .then(function (created) {
-        scans.unshift(created);
+        if (isPeer) { peerScans.unshift(created); } else { scans.unshift(created); }
         pendingImageFile = null;
         lastResult = null;
         toast("Saved to your log");
-        renderLog(); renderRecent(); renderScanIdle();
+        renderLog(); renderPeerLog(); renderRecent(); renderScanIdle();
         switchTab("log");
+        switchLogTab(isPeer ? "people" : "vendors");
       })
       .catch(function () { toast("Couldn't save — check your connection and try again."); });
   }
@@ -2755,6 +2841,96 @@
     toast("Deleted");
   }
 
+  // People you've scanned (attendee <-> attendee) — same log-item pattern as renderLog
+  // above, but sourced from peerScans/PEER_ORB_FIELDS and the /api/peer-scans endpoints,
+  // since a peer scan is scored against a different axis than a vendor scan.
+  function renderPeerLog() {
+    var box = $("peer-log-list");
+    if (!box) return;
+    if (!peerScans.length) {
+      box.innerHTML = '<div class="empty-note">No one logged yet. People you scan will show up here.</div>';
+      return;
+    }
+    box.innerHTML = peerScans.map(function (s) {
+      var orbRows = PEER_ORB_FIELDS.map(function (f) {
+        return '<div class="orb-card"><div class="orb-badge"></div><div>' +
+          '<div class="oc-label">' + f.label + '</div><div class="oc-text">' + escapeHtml((s.orbs && s.orbs[f.key]) || "—") + '</div></div></div>';
+      }).join("");
+      var scoreVal = s.score === null || s.score === undefined ? NaN : Number(s.score);
+      var showCompanyTag = ((profile && profile.companies) || []).length > 1 && s.company_context;
+      return '<div class="log-item" data-id="' + s.id + '">' +
+        '<div class="log-head">' +
+          '<div class="lh-badge"></div>' +
+          '<div class="lh-txt"><div class="lh-name">' + escapeHtml(s.scanned_name || "Unidentified") + '</div>' +
+          '<div class="lh-time">' + fmtTime(s.created_at) + '</div>' +
+          (showCompanyTag ? '<div class="lh-company">Scanned as ' + escapeHtml(s.company_context) + '</div>' : '') +
+          '</div>' +
+          escoreChipHtml(scoreVal, s.score_label) +
+          '<span class="lh-chevron">&#9662;</span>' +
+        '</div>' +
+        '<div class="log-body">' +
+          (s.score_reasons ? '<div class="escore-reasons" style="margin:0 0 10px;max-width:none;">' + escapeHtml(s.score_reasons) + '</div>' : '') +
+          orbRows +
+          '<div class="log-note"><label class="field-label">Note</label>' +
+          '<textarea rows="2" class="log-note-field">' + escapeHtml(s.note || "") + '</textarea></div>' +
+          '<div class="log-actions">' +
+            '<button class="text-btn log-note-save">Save note</button>' +
+            '<button class="text-btn danger log-delete">Delete</button>' +
+          '</div>' +
+        '</div></div>';
+    }).join("");
+
+    Array.prototype.forEach.call(box.querySelectorAll(".log-item"), function (item) {
+      var id = item.dataset.id;
+      item.querySelector(".log-head").addEventListener("click", function () {
+        item.classList.toggle("open");
+      });
+      item.querySelector(".log-note-save").addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        var val = item.querySelector(".log-note-field").value.trim();
+        updatePeerScanNote(id, val);
+      });
+      var delBtn = item.querySelector(".log-delete");
+      delBtn.addEventListener("click", function (ev) {
+        ev.stopPropagation();
+        if (delBtn.dataset.confirm === "1") {
+          deletePeerScan(id);
+        } else {
+          delBtn.dataset.confirm = "1";
+          delBtn.textContent = "Tap again to confirm";
+          setTimeout(function () { delBtn.dataset.confirm = ""; delBtn.textContent = "Delete"; }, 3000);
+        }
+      });
+    });
+  }
+
+  function updatePeerScanNote(id, note) {
+    var local = peerScans.find(function (s) { return String(s.id) === String(id); });
+    if (local) local.note = note;
+    api("/api/peer-scans/" + id, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ note: note }) })
+      .then(function () { toast("Note saved"); })
+      .catch(function () { toast("Couldn't save the note — try again."); });
+  }
+
+  function deletePeerScan(id) {
+    peerScans = peerScans.filter(function (s) { return String(s.id) !== String(id); });
+    renderPeerLog();
+    api("/api/peer-scans/" + id, { method: "DELETE" }).catch(function () {});
+    toast("Deleted");
+  }
+
+  function switchLogTab(name) {
+    Array.prototype.forEach.call(document.querySelectorAll(".log-subtab"), function (b) {
+      b.classList.toggle("active", b.dataset.logTab === name);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".log-subview"), function (v) {
+      v.classList.toggle("active", v.id === "log-" + name);
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".log-subtab"), function (b) {
+    b.addEventListener("click", function () { switchLogTab(b.dataset.logTab); });
+  });
+
   // ---------------- Me ----------------
   // Working copy of profile.companies that the Me tab edits directly — only committed
   // back to `profile` (and saved) when Save changes is pressed, so "+ Add another
@@ -2780,6 +2956,41 @@
       meCompaniesDraft.push({ id: newCompanyId(), name: "", role: "", goals: [], goals_done: {} });
     }
     renderCompanyCards();
+    loadMeReceivedScans();
+  }
+
+  // "Who's scanned you" (attendee <-> attendee) — real rows from peer_scans matching this
+  // profile's own name, across every Circuit workspace. Same honest, real-not-simulated
+  // pattern as Exhibit tab's received list; needs a saved name to look anything up.
+  function loadMeReceivedScans() {
+    var box = $("me-received-list");
+    if (!box) return;
+    var name = (profile && profile.name) || "";
+    if (!name) {
+      box.innerHTML = '<div class="empty-note">Add your name above and save to see who\'s scanned you.</div>';
+      return;
+    }
+    api("/api/peer-received-scans?name=" + encodeURIComponent(name)).then(function (rows) {
+      renderMeReceivedList(rows || []);
+    }).catch(function () { renderMeReceivedList([]); });
+  }
+
+  function renderMeReceivedList(rows) {
+    var box = $("me-received-list");
+    if (!box) return;
+    if (!rows.length) {
+      box.innerHTML = '<div class="empty-note">No real scans of you yet — they\'ll show up here as soon as someone using Circuit scans you.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="exhibit-list">' + rows.map(function (s) {
+      return '<div class="exhibit-list-item">' +
+        '<div class="exhibit-list-info">' +
+          '<div class="exhibit-list-name">' + escapeHtml(s.company_context || "Someone at CoCreate") + '</div>' +
+          '<div class="exhibit-list-meta">' + fmtTime(s.created_at) + '</div>' +
+        '</div>' +
+        escoreChipHtml(s.score, s.score_label) +
+      '</div>';
+    }).join("") + '</div>';
   }
 
   // Reads whatever's currently in each card's inputs back into meCompaniesDraft — call
@@ -2862,21 +3073,26 @@
     });
     var prevActiveId = profile && profile.active_company_id;
     var activeStillExists = companies.some(function (c) { return c.id === prevActiveId; });
+    // Carry forward exhibitor_persona (Exhibit tab's booth setup) rather than dropping it —
+    // this save only touches name/LinkedIn/companies, so anything else already on the
+    // profile should survive untouched.
     profile = {
       name: $("me-name").value.trim(),
       linkedin_url: $("me-linkedin-url").value.trim(),
       companies: companies,
-      active_company_id: activeStillExists ? prevActiveId : ((companies[0] && companies[0].id) || "")
+      active_company_id: activeStillExists ? prevActiveId : ((companies[0] && companies[0].id) || ""),
+      exhibitor_persona: (profile && profile.exhibitor_persona) || {}
     };
     saveProfile();
     toast("Saved");
     renderToday();
+    loadMeReceivedScans();
   });
 
   $("me-reset").addEventListener("click", function (ev) {
     var btn = ev.currentTarget;
     if (btn.dataset.confirm === "1") {
-      profile = { name: "", linkedin_url: "", companies: [], active_company_id: "" };
+      profile = { name: "", linkedin_url: "", companies: [], active_company_id: "", exhibitor_persona: {} };
       saveProfile();
       renderToday();
       $("onboard").hidden = false;
@@ -2944,9 +3160,11 @@
   // ---------------- init ----------------
   function init() {
     if (WORKSPACE_ID !== OWNER_WORKSPACE) $("workspace-banner").hidden = false;
+    renderScanModeToggle();
     renderScanIdle();
     renderAskChips();
     renderLog();
+    renderPeerLog();
     renderScheduleDays();
     renderSchedule();
     renderCommunity();
@@ -2958,13 +3176,15 @@
     Promise.all([
       api("/api/profile").catch(function () { return null; }),
       api("/api/scans").catch(function () { return []; }),
+      api("/api/peer-scans").catch(function () { return []; }),
       api("/api/meetings").catch(function () { return []; })
     ]).then(function (results) {
       profile = results[0];
       scans = results[1] || [];
-      meetings = results[2] || [];
+      peerScans = results[2] || [];
+      meetings = results[3] || [];
       migrateLegacyProfileIfNeeded();
-      renderLog(); renderRecent();
+      renderLog(); renderPeerLog(); renderRecent();
       // Setup/onboarding is a pre-show step — once the show has actually started, always land
       // on the home screen instead, even for a profile that never finished onboarding.
       var eventHasStarted = new Date() >= EVENT_START;

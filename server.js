@@ -4,7 +4,7 @@ const path = require("path");
 const express = require("express");
 const multer = require("multer");
 const { query, initDb } = require("./db");
-const { identifyVendor, identifyLead, askQuestion, draftMeetingMessage, draftSocialCaption } = require("./lib/claude");
+const { identifyVendor, identifyLead, identifyPeer, askQuestion, draftMeetingMessage, draftSocialCaption } = require("./lib/claude");
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
@@ -271,6 +271,104 @@ app.get("/api/exhibitor-received-scans", requireAppSecret, resolveWorkspace, asy
     if (!name) return res.json([]);
     const { rows } = await query(
       "SELECT id, name, score, score_label, score_reasons, orbs, created_at, company_context FROM scans WHERE name = $1 ORDER BY created_at DESC LIMIT 100",
+      [name]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+// ---------------- Attendee <-> attendee matchmaking ----------------
+// Mirrors the buyer-side /api/scan(s) routes above, but the target is a fellow attendee
+// met on the floor rather than a vendor — scored with the same two-sided (LinkedIn/company)
+// read against whichever company is currently representing. Kept in its own table
+// (peer_scans) rather than overloading `scans`, since mixing "vendors I scanned" and
+// "people I met" into one list would make company-goal scoring ambiguous about which axis
+// a given row was actually scored against.
+app.post("/api/peer-scan", requireAppSecret, resolveWorkspace, upload.single("photo"), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "invalid_request", message: "no photo attached" });
+    const { rows } = await query(
+      "SELECT companies, active_company_id, linkedin_url FROM profile WHERE workspace_id = $1",
+      [req.workspaceId]
+    );
+    const active = activeCompanyOf(rows[0]);
+    const goals = (active && active.goals) || [];
+    const linkedinUrl = (rows[0] && rows[0].linkedin_url) || "";
+    const companyName = (active && active.name) || "";
+    const result = await identifyPeer(req.file.buffer, req.file.mimetype || "image/jpeg", goals, {
+      linkedinUrl,
+      companyName,
+    });
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+app.get("/api/peer-scans", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      "SELECT * FROM peer_scans WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 200",
+      [req.workspaceId]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+app.post("/api/peer-scans", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    const { name, confidence, orbs, note, score, scoreLabel, scoreReasons, companyContext } = req.body || {};
+    const { rows } = await query(
+      `INSERT INTO peer_scans (workspace_id, scanned_name, confidence, orbs, note, score, score_label, score_reasons, company_context)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9) RETURNING *`,
+      [
+        req.workspaceId,
+        name || "Unidentified",
+        confidence || "unknown",
+        JSON.stringify(orbs || {}),
+        note || "",
+        Number.isFinite(score) ? score : null,
+        scoreLabel || "",
+        scoreReasons || "",
+        String(companyContext || "").trim().slice(0, 120),
+      ]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+app.patch("/api/peer-scans/:id", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    const { note } = req.body || {};
+    const { rows } = await query(
+      `UPDATE peer_scans SET note = $1 WHERE id = $2 AND workspace_id = $3 RETURNING *`,
+      [note || "", req.params.id, req.workspaceId]
+    );
+    if (!rows.length) return res.status(404).json({ error: "not_found" });
+    res.json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+app.delete("/api/peer-scans/:id", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    await query("DELETE FROM peer_scans WHERE id = $1 AND workspace_id = $2", [req.params.id, req.workspaceId]);
+    res.status(204).end();
+  } catch (err) { next(err); }
+});
+
+// "Who's scanned you" for a regular attendee — real rows from peer_scans (the SAME table
+// every scan of a person writes into, whichever workspace did the scanning) whose
+// scanned_name matches this reader's own profile name, across every workspace. Falls back
+// to this workspace's own saved profile name when none is passed explicitly — same honest,
+// real-not-simulated pattern as /api/exhibitor-received-scans above.
+app.get("/api/peer-received-scans", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    let name = String((req.query && req.query.name) || "").trim();
+    if (!name) {
+      const { rows: profileRows } = await query("SELECT name FROM profile WHERE workspace_id = $1", [req.workspaceId]);
+      name = ((profileRows[0] && profileRows[0].name) || "").trim();
+    }
+    if (!name) return res.json([]);
+    const { rows } = await query(
+      "SELECT id, scanned_name, score, score_label, score_reasons, orbs, created_at, company_context FROM peer_scans WHERE scanned_name = $1 ORDER BY created_at DESC LIMIT 100",
       [name]
     );
     res.json(rows);

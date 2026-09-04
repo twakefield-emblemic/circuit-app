@@ -138,6 +138,36 @@ async function initDb() {
   `);
   await query(`CREATE INDEX IF NOT EXISTS idx_exhibitor_scans_workspace_created ON exhibitor_scans (workspace_id, created_at DESC);`);
 
+  // Attendee <-> attendee scanning/matchmaking — the buyer identity's own peer network,
+  // distinct from both `scans` (buyer scans a vendor) and `exhibitor_scans` (exhibitor
+  // persona scans a lead/partner). Here the scanner is just the workspace's normal buyer
+  // identity, meeting someone else on the floor and scoring the connection against their
+  // own goals for the show (same two-sided LinkedIn/company read identifyVendor already
+  // does for vendors).
+  //
+  // Unlike exhibitor_scans, this is genuinely symmetric — anyone with a Circuit link can
+  // scan anyone else — so ONE table serves both directions: a row is written by the
+  // scanner's own workspace, and "who's scanned me" is answered by querying this same
+  // table for rows whose scanned_name matches the reader's own profile name, across every
+  // workspace. Same honest, real-not-simulated pattern as exhibitor_scans' received feed.
+  await query(`
+    CREATE TABLE IF NOT EXISTS peer_scans (
+      id SERIAL PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      scanned_name TEXT NOT NULL DEFAULT 'Unidentified',
+      confidence TEXT NOT NULL DEFAULT 'unknown',
+      orbs JSONB NOT NULL DEFAULT '{}'::jsonb,
+      note TEXT NOT NULL DEFAULT '',
+      score INTEGER,
+      score_label TEXT,
+      score_reasons TEXT,
+      company_context TEXT DEFAULT '',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_peer_scans_workspace_created ON peer_scans (workspace_id, created_at DESC);`);
+  await query(`CREATE INDEX IF NOT EXISTS idx_peer_scans_scanned_name ON peer_scans (scanned_name);`);
+
   await query(`
     CREATE TABLE IF NOT EXISTS meetings (
       id SERIAL PRIMARY KEY,
