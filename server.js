@@ -4,7 +4,7 @@ const path = require("path");
 const express = require("express");
 const multer = require("multer");
 const { query, initDb } = require("./db");
-const { identifyVendor, askQuestion, draftMeetingMessage, draftSocialCaption } = require("./lib/claude");
+const { identifyVendor, identifyLead, askQuestion, draftMeetingMessage, draftSocialCaption } = require("./lib/claude");
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
@@ -98,14 +98,27 @@ app.put("/api/profile", requireAppSecret, resolveWorkspace, async (req, res, nex
       goals_done: (c && typeof c.goals_done === "object" && c.goals_done) || {},
     }));
 
+    // Exhibitor Mode (preview) persona — same sanitize-on-write spirit as companies above.
+    // "lookingFor" plays the role goals plays for a buyer: what this exhibitor wants a scan
+    // of an attendee or another exhibitor's booth to be scored against.
+    const personaIn = (body.exhibitor_persona !== undefined ? body.exhibitor_persona : body.exhibitorPersona) || {};
+    const exhibitorPersona = {
+      name: String((personaIn && personaIn.name) || "").trim().slice(0, 120),
+      category: String((personaIn && personaIn.category) || "").trim().slice(0, 120),
+      lookingFor: Array.isArray(personaIn && personaIn.lookingFor)
+        ? personaIn.lookingFor.filter(Boolean).map(String).slice(0, 20)
+        : [],
+    };
+
     const { rows } = await query(
-      `INSERT INTO profile (workspace_id, name, linkedin_url, companies, active_company_id, updated_at)
-       VALUES ($1, $2, $3, $4::jsonb, $5, now())
+      `INSERT INTO profile (workspace_id, name, linkedin_url, companies, active_company_id, exhibitor_persona, updated_at)
+       VALUES ($1, $2, $3, $4::jsonb, $5, $6::jsonb, now())
        ON CONFLICT (workspace_id) DO UPDATE SET
          name = EXCLUDED.name, linkedin_url = EXCLUDED.linkedin_url,
-         companies = EXCLUDED.companies, active_company_id = EXCLUDED.active_company_id, updated_at = now()
+         companies = EXCLUDED.companies, active_company_id = EXCLUDED.active_company_id,
+         exhibitor_persona = EXCLUDED.exhibitor_persona, updated_at = now()
        RETURNING *`,
-      [req.workspaceId, name || "", linkedinUrl || "", JSON.stringify(companies), activeCompanyId]
+      [req.workspaceId, name || "", linkedinUrl || "", JSON.stringify(companies), activeCompanyId, JSON.stringify(exhibitorPersona)]
     );
     res.json(rows[0]);
   } catch (err) { next(err); }
@@ -184,6 +197,83 @@ app.post("/api/scan", requireAppSecret, resolveWorkspace, upload.single("photo")
       companyName,
     });
     res.json(result);
+  } catch (err) { next(err); }
+});
+
+// ---------------- Exhibitor Mode (preview) ----------------
+// Mirrors the buyer-side /api/scan(s) routes above, but for an exhibitor persona scanning
+// an attendee's badge/card or another exhibitor's booth, scored against exhibitor_persona.
+// lookingFor instead of buyer goals. Kept as its own table/route set (see db.js) rather
+// than overloading the buyer-side ones, since it's a different scanner and different
+// scoring criteria, not just a different label on the same data.
+app.post("/api/exhibitor-scan", requireAppSecret, resolveWorkspace, upload.single("photo"), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "invalid_request", message: "no photo attached" });
+    const scanType = req.body && req.body.scanType === "exhibitor" ? "exhibitor" : "attendee";
+    const { rows } = await query("SELECT exhibitor_persona FROM profile WHERE workspace_id = $1", [req.workspaceId]);
+    const persona = (rows[0] && rows[0].exhibitor_persona) || {};
+    const lookingFor = Array.isArray(persona.lookingFor) ? persona.lookingFor : [];
+    const result = await identifyLead(req.file.buffer, req.file.mimetype || "image/jpeg", lookingFor, scanType);
+    res.json(result);
+  } catch (err) { next(err); }
+});
+
+app.get("/api/exhibitor-scans", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      "SELECT * FROM exhibitor_scans WHERE workspace_id = $1 ORDER BY created_at DESC LIMIT 200",
+      [req.workspaceId]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+app.post("/api/exhibitor-scans", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    const { name, confidence, orbs, note, score, scoreLabel, scoreReasons, scannedType, exhibitorName } = req.body || {};
+    const { rows } = await query(
+      `INSERT INTO exhibitor_scans (workspace_id, exhibitor_name, scanned_type, scanned_name, confidence, orbs, note, score, score_label, score_reasons)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10) RETURNING *`,
+      [
+        req.workspaceId,
+        String(exhibitorName || "").trim().slice(0, 120),
+        scannedType === "exhibitor" ? "exhibitor" : "attendee",
+        name || "Unidentified",
+        confidence || "unknown",
+        JSON.stringify(orbs || {}),
+        note || "",
+        Number.isFinite(score) ? score : null,
+        scoreLabel || "",
+        scoreReasons || "",
+      ]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) { next(err); }
+});
+
+app.delete("/api/exhibitor-scans/:id", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    await query("DELETE FROM exhibitor_scans WHERE id = $1 AND workspace_id = $2", [req.params.id, req.workspaceId]);
+    res.status(204).end();
+  } catch (err) { next(err); }
+});
+
+// "Who's scanned you" — real scans of this exhibitor by name, across every Circuit
+// workspace (same shared-visibility model as community_posts), never simulated. Falls
+// back to this workspace's own saved persona name when none is passed explicitly.
+app.get("/api/exhibitor-received-scans", requireAppSecret, resolveWorkspace, async (req, res, next) => {
+  try {
+    let name = String((req.query && req.query.name) || "").trim();
+    if (!name) {
+      const { rows: profileRows } = await query("SELECT exhibitor_persona FROM profile WHERE workspace_id = $1", [req.workspaceId]);
+      name = ((profileRows[0] && profileRows[0].exhibitor_persona && profileRows[0].exhibitor_persona.name) || "").trim();
+    }
+    if (!name) return res.json([]);
+    const { rows } = await query(
+      "SELECT id, name, score, score_label, score_reasons, orbs, created_at, company_context FROM scans WHERE name = $1 ORDER BY created_at DESC LIMIT 100",
+      [name]
+    );
+    res.json(rows);
   } catch (err) { next(err); }
 });
 

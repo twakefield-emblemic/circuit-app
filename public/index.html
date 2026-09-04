@@ -245,6 +245,42 @@
     font-size: 16px; line-height: 1; padding: 4px;
   }
 
+  /* exhibitor mode */
+  .beta-tag {
+    font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--accent); background: var(--accent-soft); border-radius: 99px;
+    padding: 2px 7px; vertical-align: middle; margin-left: 6px;
+  }
+  .exhibit-persona-summary { display: flex; align-items: center; gap: 12px; }
+  .exhibit-persona-avatar {
+    width: 40px; height: 40px; border-radius: 50%; background: var(--accent-soft); color: var(--accent);
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px; flex-shrink: 0;
+  }
+  .exhibit-persona-name { font-weight: 700; font-size: 14.5px; }
+  .exhibit-persona-sub { font-size: 12px; color: var(--ink-faint); margin-top: 1px; }
+  .exhibit-persona-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .exhibit-persona-tag {
+    font-size: 11px; color: var(--ink-dim); background: var(--surface-2, var(--surface));
+    border: 1px solid var(--line); border-radius: 99px; padding: 3px 9px;
+  }
+  .exhibit-match-list { max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; margin-top: 6px; }
+  .exhibit-match-row { padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .exhibit-match-row:last-child { border-bottom: none; }
+  .exhibit-match-row:hover, .exhibit-match-row:focus-visible { background: var(--accent-soft); }
+  .exhibit-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+  .exhibit-list-item {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .exhibit-list-info { flex: 1; min-width: 0; }
+  .exhibit-list-name { font-weight: 600; font-size: 13.5px; }
+  .exhibit-list-meta { font-size: 11.5px; color: var(--ink-faint); margin-top: 2px; }
+  .exhibit-list-del {
+    background: none; border: none; color: var(--ink-faint); cursor: pointer; flex-shrink: 0;
+    font-size: 16px; line-height: 1; padding: 4px;
+  }
+
   /* schedule */
   .sched-list { display: flex; flex-direction: column; margin-top: 10px; }
   .sched-item { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); }
@@ -932,6 +968,29 @@
       <button class="text-btn danger" id="me-reset" style="align-self:flex-start;">Reset all data</button>
     </section>
 
+    <!-- EXHIBIT (preview) -->
+    <section class="view" id="view-exhibit">
+      <div class="eyebrow">Exhibitor Mode <span class="beta-tag">Preview</span></div>
+      <div class="caveat" style="margin:0 0 14px;">The other side of a scan &mdash; set up a booth persona from CoCreate's featured exhibitor list, then scan an attendee's card or another booth the way an exhibitor would.</div>
+
+      <div id="exhibit-persona-setup"></div>
+
+      <div id="exhibit-main" hidden>
+        <div class="card" id="exhibit-persona-card"></div>
+
+        <div class="eyebrow" style="margin-top:16px;">Scan</div>
+        <div class="ask-suggest" id="exhibit-scan-mode"></div>
+        <div id="exhibit-scan-body"></div>
+
+        <div class="eyebrow" style="margin-top:16px;">Who's scanned you</div>
+        <div class="caveat" style="margin:0 0 8px;">Real Circuit scans of this booth from any attendee using the app &mdash; not simulated, so it'll be sparse until more people are actually scanning</div>
+        <div id="exhibit-received-list"></div>
+
+        <div class="eyebrow" style="margin-top:16px;">Your scan log</div>
+        <div id="exhibit-log-list"></div>
+      </div>
+    </section>
+
   </main>
 
   <nav class="tabbar">
@@ -954,6 +1013,10 @@
     <button class="tab-btn" data-tab="me">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.6 4-5.5 7-5.5s5.8 1.9 7 5.5"/></svg>
       <span>Me</span>
+    </button>
+    <button class="tab-btn" data-tab="exhibit">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-5 9 5v12"/><path d="M9 21v-7h6v7"/></svg>
+      <span>Exhibit</span>
     </button>
   </nav>
 
@@ -987,6 +1050,15 @@
     "Scope competitors in my category",
     "Check out the CoCreate Pitch showcase",
     "General market recon"
+  ];
+  // Plays the same role for an Exhibitor Mode persona that GOAL_OPTIONS plays for a buyer —
+  // what a scan of an attendee or another booth gets scored against.
+  var EXHIBITOR_LOOKING_FOR_OPTIONS = [
+    "Buyers ready to place bulk orders",
+    "Distributors for my category",
+    "Retail or wholesale partners",
+    "Media or influencer coverage",
+    "Investors or strategic partners"
   ];
   var ORB_FIELDS = [
     { key: "product",       label: "Product" },
@@ -1436,10 +1508,10 @@
     $("greet-sub").textContent = sub;
   }
 
-  // ---------------- goal picker (shared by onboarding + Me) ----------------
-  function buildGoalPicker(container, selected) {
+  // ---------------- goal picker (shared by onboarding + Me + Exhibitor Mode) ----------------
+  function buildGoalPicker(container, selected, options) {
     container.innerHTML = "";
-    GOAL_OPTIONS.forEach(function (g) {
+    (options || GOAL_OPTIONS).forEach(function (g) {
       var b = document.createElement("button");
       b.type = "button";
       b.className = "chip" + (selected.indexOf(g) > -1 ? " on" : "");
@@ -2038,6 +2110,341 @@
   });
   $("supplier-search").addEventListener("input", function () { renderSupplierList($("supplier-search").value); });
 
+  // ---------------- Exhibitor Mode (preview) ----------------
+  // Demonstrates the OTHER side of a Circuit scan: a booth persona (picked from CoCreate's
+  // real featured exhibitor list, or typed in) scanning an attendee's card or another booth,
+  // scored against what THIS persona is looking for instead of buyer goals. One persona per
+  // workspace — profile.exhibitor_persona, same JSONB-blob pattern as `companies`.
+  var exhibitorScans = [];
+  var exhibitorReceivedScans = [];
+  var exhibitorPendingImageFile = null;
+  var exhibitorLastResult = null;
+  var exhibitorScanMode = "attendee";
+  var exhibitorPersonaEditing = false;
+  var EXHIBIT_ORB_FIELDS = [
+    { key: "detail",       label: "Detail" },
+    { key: "background",   label: "Background" },
+    { key: "find_them",    label: "Find them" },
+    { key: "why_follow_up", label: "Worth a look" }
+  ];
+
+  function exhibitorPersona() {
+    return (profile && profile.exhibitor_persona) || {};
+  }
+
+  function renderExhibitView() {
+    var persona = exhibitorPersona();
+    var hasPersona = !!(persona && persona.name);
+    if (!hasPersona || exhibitorPersonaEditing) {
+      $("exhibit-main").hidden = true;
+      renderExhibitPersonaForm();
+    } else {
+      $("exhibit-persona-setup").innerHTML = "";
+      $("exhibit-main").hidden = false;
+      renderExhibitPersonaCard();
+      renderExhibitScanModeToggle();
+      renderExhibitScanIdle();
+      loadExhibitReceivedScans();
+      loadExhibitLog();
+    }
+  }
+
+  function renderExhibitPersonaForm() {
+    var persona = exhibitorPersona();
+    var box = $("exhibit-persona-setup");
+    box.innerHTML =
+      '<div class="card">' +
+        '<div class="field">' +
+          '<label class="field-label" for="ex-persona-search">Which exhibitor are you demoing as?</label>' +
+          '<input type="text" id="ex-persona-search" autocomplete="off" placeholder="Search the featured exhibitor list, or type your own&hellip;" value="' + escapeHtml(persona.name || "") + '">' +
+          '<div class="exhibit-match-list" id="ex-persona-matches" hidden></div>' +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="field-label" for="ex-persona-category">Category</label>' +
+          '<input type="text" id="ex-persona-category" autocomplete="off" placeholder="e.g. Apparel &amp; Accessories" value="' + escapeHtml(persona.category || "") + '">' +
+        '</div>' +
+        '<div class="field">' +
+          '<label class="field-label">What are you looking for?</label>' +
+          '<div class="goal-picker" id="ex-lookingfor-picker"></div>' +
+          '<input type="text" id="ex-lookingfor-custom" autocomplete="off" placeholder="Add your own&hellip;">' +
+        '</div>' +
+        '<div class="btn-row">' +
+          (exhibitorPersonaEditing ? '<button class="btn btn-ghost" id="ex-persona-cancel">Cancel</button>' : '') +
+          '<button class="btn btn-primary" id="ex-persona-save">Save booth persona</button>' +
+        '</div>' +
+      '</div>';
+
+    buildGoalPicker($("ex-lookingfor-picker"), persona.lookingFor || [], EXHIBITOR_LOOKING_FOR_OPTIONS);
+
+    var searchInput = $("ex-persona-search");
+    var matchesBox = $("ex-persona-matches");
+    searchInput.addEventListener("input", function () {
+      var q = searchInput.value.trim().toLowerCase();
+      if (!q) { matchesBox.hidden = true; matchesBox.innerHTML = ""; return; }
+      var rows = SUPPLIERS.filter(function (s) { return s.name.toLowerCase().indexOf(q) !== -1; }).slice(0, 8);
+      if (!rows.length) { matchesBox.hidden = true; matchesBox.innerHTML = ""; return; }
+      matchesBox.hidden = false;
+      matchesBox.innerHTML = rows.map(function (s) {
+        return '<div class="exhibit-match-row" data-name="' + escapeHtml(s.name) + '" data-category="' + escapeHtml(s.category) + '">' +
+          '<span class="sr-name">' + escapeHtml(s.name) + '</span> <span class="sr-cat">' + escapeHtml(s.category) + '</span>' +
+        '</div>';
+      }).join("");
+      Array.prototype.forEach.call(matchesBox.querySelectorAll(".exhibit-match-row"), function (row) {
+        row.addEventListener("click", function () {
+          searchInput.value = row.dataset.name;
+          $("ex-persona-category").value = row.dataset.category;
+          matchesBox.hidden = true;
+          matchesBox.innerHTML = "";
+        });
+      });
+    });
+
+    if (exhibitorPersonaEditing) {
+      $("ex-persona-cancel").addEventListener("click", function () { exhibitorPersonaEditing = false; renderExhibitView(); });
+    }
+    $("ex-persona-save").addEventListener("click", function () {
+      var name = searchInput.value.trim();
+      if (!name) { toast("Add an exhibitor name first"); return; }
+      var lookingFor = readGoalPicker($("ex-lookingfor-picker"), $("ex-lookingfor-custom"));
+      if (!profile) profile = { name: "", companies: [], active_company_id: "" };
+      profile.exhibitor_persona = { name: name, category: $("ex-persona-category").value.trim(), lookingFor: lookingFor };
+      saveProfile();
+      exhibitorPersonaEditing = false;
+      toast("Booth persona saved");
+      renderExhibitView();
+    });
+  }
+
+  function renderExhibitPersonaCard() {
+    var persona = exhibitorPersona();
+    var initials = (persona.name || "?").trim().slice(0, 2).toUpperCase();
+    var tags = (persona.lookingFor || []).map(function (g) {
+      return '<span class="exhibit-persona-tag">' + escapeHtml(g) + '</span>';
+    }).join("");
+    $("exhibit-persona-card").innerHTML =
+      '<div class="exhibit-persona-summary">' +
+        '<div class="exhibit-persona-avatar">' + escapeHtml(initials) + '</div>' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div class="exhibit-persona-name">' + escapeHtml(persona.name || "") + '</div>' +
+          (persona.category ? '<div class="exhibit-persona-sub">' + escapeHtml(persona.category) + '</div>' : '') +
+        '</div>' +
+        '<button type="button" class="link-btn" id="ex-persona-edit">Edit</button>' +
+      '</div>' +
+      (tags ? '<div class="exhibit-persona-tags">' + tags + '</div>' : '');
+    $("ex-persona-edit").addEventListener("click", function () { exhibitorPersonaEditing = true; renderExhibitView(); });
+  }
+
+  function renderExhibitScanModeToggle() {
+    var box = $("exhibit-scan-mode");
+    box.innerHTML = "";
+    [{ v: "attendee", label: "Scanning: Attendee lead" }, { v: "exhibitor", label: "Scanning: Exhibitor partner" }].forEach(function (m) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "rep-chip" + (exhibitorScanMode === m.v ? " on" : "");
+      b.textContent = m.label;
+      b.addEventListener("click", function () {
+        exhibitorScanMode = m.v;
+        exhibitorPendingImageFile = null;
+        exhibitorLastResult = null;
+        renderExhibitScanModeToggle();
+        renderExhibitScanIdle();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function renderExhibitScanIdle() {
+    var hint = exhibitorScanMode === "exhibitor"
+      ? "Snap another booth's logo or sign. Claude will identify it and score the partnership fit against what you're looking for."
+      : "Snap the attendee's badge or business card. Claude will identify them and score the lead against what you're looking for.";
+    $("exhibit-scan-body").innerHTML =
+      '<div class="scan-stage">' +
+        '<button class="camera-btn" id="exhibit-camera-btn">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2"/><circle cx="12" cy="12" r="3.5"/></svg>' +
+        '</button>' +
+        '<div class="hint">' + hint + '</div>' +
+        '<input type="file" id="exhibit-file-input" accept="image/*" capture="environment" hidden>' +
+      '</div>';
+    var btn = $("exhibit-camera-btn");
+    var input = $("exhibit-file-input");
+    btn.addEventListener("click", function () { input.click(); });
+    input.addEventListener("change", function () {
+      if (input.files && input.files[0]) {
+        exhibitorPendingImageFile = input.files[0];
+        renderExhibitScanPreview();
+      }
+    });
+  }
+
+  function renderExhibitScanPreview() {
+    var url = URL.createObjectURL(exhibitorPendingImageFile);
+    $("exhibit-scan-body").innerHTML =
+      '<div class="scan-stage">' +
+        '<img class="preview" src="' + url + '" alt="Photo to identify">' +
+        '<div class="btn-row" style="width:100%;">' +
+          '<button class="btn btn-ghost" id="exhibit-retake">Retake</button>' +
+          '<button class="btn btn-primary" id="exhibit-identify">Identify</button>' +
+        '</div>' +
+      '</div>';
+    $("exhibit-retake").addEventListener("click", function () { exhibitorPendingImageFile = null; renderExhibitScanIdle(); });
+    $("exhibit-identify").addEventListener("click", runExhibitIdentify);
+  }
+
+  function runExhibitIdentify() {
+    if (!exhibitorPendingImageFile) return;
+    $("exhibit-scan-body").innerHTML = '<div class="thinking"><span class="spinner"></span> Identifying &amp; searching for what\'s current&hellip; usually 15&ndash;45s.</div>';
+    var form = new FormData();
+    form.append("photo", exhibitorPendingImageFile);
+    form.append("scanType", exhibitorScanMode);
+    api("/api/exhibitor-scan", { method: "POST", body: form })
+      .then(function (data) {
+        exhibitorLastResult = {
+          name: data.name || "Unidentified",
+          confidence: data.confidence || "unknown",
+          orbs: {
+            detail: data.detail || "",
+            background: data.background || "",
+            find_them: data.find_them || "",
+            why_follow_up: data.why_follow_up || ""
+          },
+          score: Number.isFinite(data.score) ? data.score : null,
+          scoreLabel: data.score_label || "",
+          scoreReasons: data.score_reasons || ""
+        };
+        renderExhibitScanResult();
+      })
+      .catch(function (e) { renderExhibitScanError(e); });
+  }
+
+  function renderExhibitScanError(e) {
+    var msg = (e && e.status === 401)
+      ? "This app isn't paired with its backend correctly — check the shared secret."
+      : "Something glitched on that scan — try again, maybe with a clearer photo.";
+    $("exhibit-scan-body").innerHTML =
+      '<div class="card"><p style="margin:0 0 12px;font-size:14px;">' + escapeHtml(msg) + '</p>' +
+      '<button class="btn btn-ghost" id="exhibit-scan-again">Try again</button></div>';
+    $("exhibit-scan-again").addEventListener("click", function () { exhibitorPendingImageFile = null; renderExhibitScanIdle(); });
+  }
+
+  function renderExhibitScanResult() {
+    var r = exhibitorLastResult;
+    var cardsHtml = EXHIBIT_ORB_FIELDS.map(function (f) {
+      var text = r.orbs[f.key] || "—";
+      return '<div class="orb-card">' +
+        '<div class="orb-badge"></div>' +
+        '<div><div class="oc-label">' + f.label + '</div>' +
+        '<div class="oc-text">' + escapeHtml(text) + '</div></div></div>';
+    }).join("");
+
+    $("exhibit-scan-body").innerHTML =
+      '<div class="orb-cluster-wrap">' + orbClusterSvg() + '</div>' +
+      '<div class="orb-result-name"><div class="rn-company">' + escapeHtml(r.name) + '</div>' +
+        '<div class="rn-conf">' + escapeHtml(r.confidence) + ' confidence read</div></div>' +
+      escoreHtml(r.score, r.scoreLabel, r.scoreReasons) +
+      '<div class="caveat" style="display:flex; justify-content:center; margin-bottom:2px;">Searched live — still worth a gut check on anything critical</div>' +
+      '<div class="card flush" style="padding:2px 16px;">' + cardsHtml + '</div>' +
+      '<div class="field">' +
+        '<label class="field-label" for="exhibit-note">Your note (optional)</label>' +
+        '<textarea id="exhibit-note" rows="2" placeholder="e.g. Asked about MOQ for a private-label run"></textarea>' +
+      '</div>' +
+      '<div class="btn-row">' +
+        '<button class="btn btn-ghost" id="exhibit-discard">Discard</button>' +
+        '<button class="btn btn-primary" id="exhibit-save">Save to log</button>' +
+      '</div>';
+
+    $("exhibit-discard").addEventListener("click", function () { exhibitorPendingImageFile = null; exhibitorLastResult = null; renderExhibitScanIdle(); });
+    $("exhibit-save").addEventListener("click", saveExhibitScan);
+    animateOrbCluster();
+  }
+
+  function saveExhibitScan() {
+    var note = $("exhibit-note").value.trim();
+    var persona = exhibitorPersona();
+    var entry = {
+      name: exhibitorLastResult.name, confidence: exhibitorLastResult.confidence, orbs: exhibitorLastResult.orbs, note: note,
+      score: exhibitorLastResult.score, scoreLabel: exhibitorLastResult.scoreLabel, scoreReasons: exhibitorLastResult.scoreReasons,
+      scannedType: exhibitorScanMode, exhibitorName: persona.name || ""
+    };
+    api("/api/exhibitor-scans", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(entry) })
+      .then(function (created) {
+        exhibitorScans.unshift(created);
+        exhibitorPendingImageFile = null;
+        exhibitorLastResult = null;
+        toast("Saved to your exhibitor log");
+        renderExhibitLogList();
+        renderExhibitScanIdle();
+      })
+      .catch(function () { toast("Couldn't save — check your connection and try again."); });
+  }
+
+  function loadExhibitReceivedScans() {
+    var persona = exhibitorPersona();
+    var url = "/api/exhibitor-received-scans" + (persona.name ? "?name=" + encodeURIComponent(persona.name) : "");
+    api(url).then(function (rows) {
+      exhibitorReceivedScans = rows || [];
+      renderExhibitReceivedList();
+    }).catch(function () {
+      exhibitorReceivedScans = [];
+      renderExhibitReceivedList();
+    });
+  }
+
+  function renderExhibitReceivedList() {
+    var box = $("exhibit-received-list");
+    if (!exhibitorReceivedScans.length) {
+      box.innerHTML = '<div class="empty-note">No real scans of this booth yet — they\'ll show up here as soon as someone using Circuit scans it.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="exhibit-list">' + exhibitorReceivedScans.map(function (s) {
+      return '<div class="exhibit-list-item">' +
+        '<div class="exhibit-list-info">' +
+          '<div class="exhibit-list-name">' + escapeHtml(s.company_context || "An attendee") + '</div>' +
+          '<div class="exhibit-list-meta">' + fmtTime(s.created_at) + '</div>' +
+        '</div>' +
+        escoreChipHtml(s.score, s.score_label) +
+      '</div>';
+    }).join("") + '</div>';
+  }
+
+  function loadExhibitLog() {
+    api("/api/exhibitor-scans").then(function (rows) {
+      exhibitorScans = rows || [];
+      renderExhibitLogList();
+    }).catch(function () { exhibitorScans = []; renderExhibitLogList(); });
+  }
+
+  function renderExhibitLogList() {
+    var box = $("exhibit-log-list");
+    if (!exhibitorScans.length) {
+      box.innerHTML = '<div class="empty-note">No scans yet — try the camera above.</div>';
+      return;
+    }
+    box.innerHTML = '<div class="exhibit-list">' + exhibitorScans.map(function (s) {
+      return '<div class="exhibit-list-item" data-id="' + s.id + '">' +
+        '<div class="exhibit-list-info">' +
+          '<div class="exhibit-list-name">' + escapeHtml(s.scanned_name || "Unidentified") + '</div>' +
+          '<div class="exhibit-list-meta">' + (s.scanned_type === "exhibitor" ? "Exhibitor" : "Attendee") + ' &middot; ' + fmtTime(s.created_at) + '</div>' +
+        '</div>' +
+        escoreChipHtml(s.score, s.score_label) +
+        '<button class="exhibit-list-del" data-action="del" aria-label="Delete">&times;</button>' +
+      '</div>';
+    }).join("") + '</div>';
+    Array.prototype.forEach.call(box.querySelectorAll(".exhibit-list-item"), function (item) {
+      var id = item.dataset.id;
+      var delBtn = item.querySelector('[data-action="del"]');
+      if (delBtn) delBtn.addEventListener("click", function () { deleteExhibitScan(id); });
+    });
+  }
+
+  function deleteExhibitScan(id) {
+    api("/api/exhibitor-scans/" + id, { method: "DELETE" })
+      .then(function () {
+        exhibitorScans = exhibitorScans.filter(function (s) { return String(s.id) !== String(id); });
+        renderExhibitLogList();
+      })
+      .catch(function () { toast("Couldn't delete — try again."); });
+  }
+
   // ---------------- Event view (Agenda / Community / Wrap Up) ----------------
   function switchEventTab(name) {
     Array.prototype.forEach.call(document.querySelectorAll(".event-subtab"), function (b) {
@@ -2493,6 +2900,7 @@
     Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function (b) { b.classList.toggle("active", b.dataset.tab === name); });
     $("view-" + name).classList.add("active");
     if (name === "me") renderMe();
+    if (name === "exhibit") renderExhibitView();
     document.querySelector("main").scrollTop = 0;
   }
   Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function (b) {

@@ -42,6 +42,13 @@ async function initDb() {
   await query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS companies JSONB DEFAULT '[]'::jsonb;`);
   await query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS active_company_id TEXT DEFAULT '';`);
 
+  // Exhibitor Mode (preview) — lets a Circuit user demo the OTHER side of a scan: set up as
+  // a booth ({name, category, lookingFor: [...]} — "lookingFor" plays the same role goals
+  // plays for a buyer, just describing the leads/partners this exhibitor wants to meet), then
+  // scan an attendee or another exhibitor and get a match read against that targeting instead
+  // of against buyer goals. One persona per workspace, same JSONB-blob pattern as `companies`.
+  await query(`ALTER TABLE profile ADD COLUMN IF NOT EXISTS exhibitor_persona JSONB DEFAULT '{}'::jsonb;`);
+
   // Migration for a profile table from before workspaces existed (single row,
   // "id INTEGER PRIMARY KEY DEFAULT 1" instead of workspace_id) — the CREATE TABLE
   // above no-ops against a table that already exists, so the old shape needs to be
@@ -97,6 +104,39 @@ async function initDb() {
   await query(`ALTER TABLE scans ADD COLUMN IF NOT EXISTS company_context TEXT DEFAULT '';`);
 
   await query(`CREATE INDEX IF NOT EXISTS idx_scans_workspace_created ON scans (workspace_id, created_at DESC);`);
+  // Lets an exhibitor persona's "who's scanned you" feed look up real scans of them by name,
+  // across every workspace — see exhibitor_scans below for why this stays real rather than
+  // simulated.
+  await query(`CREATE INDEX IF NOT EXISTS idx_scans_name ON scans (name);`);
+
+  // Exhibitor Mode's own scan log — the mirror of `scans` above, but for a scan an exhibitor
+  // persona makes of an attendee's badge/card or of another exhibitor's booth. Kept as its own
+  // table rather than reusing `scans` because it's a different scanner (an exhibitor persona,
+  // not the workspace's buyer identity) being matched against different criteria
+  // (exhibitor_persona.lookingFor, not company goals).
+  //
+  // "Who's scanned you" is deliberately NOT stored here or fabricated — it's answered by
+  // querying the real `scans` table (above) for rows whose `name` matches this exhibitor's
+  // name, across every workspace, the same shared-visibility pattern community_posts uses.
+  // That keeps it honest: with only a couple of real Circuit users right now, it'll mostly be
+  // sparse or empty rather than padded out with invented scan history.
+  await query(`
+    CREATE TABLE IF NOT EXISTS exhibitor_scans (
+      id SERIAL PRIMARY KEY,
+      workspace_id TEXT NOT NULL,
+      exhibitor_name TEXT NOT NULL DEFAULT '',
+      scanned_type TEXT NOT NULL DEFAULT 'attendee',
+      scanned_name TEXT NOT NULL DEFAULT 'Unidentified',
+      confidence TEXT NOT NULL DEFAULT 'unknown',
+      orbs JSONB NOT NULL DEFAULT '{}'::jsonb,
+      note TEXT NOT NULL DEFAULT '',
+      score INTEGER,
+      score_label TEXT,
+      score_reasons TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+  await query(`CREATE INDEX IF NOT EXISTS idx_exhibitor_scans_workspace_created ON exhibitor_scans (workspace_id, created_at DESC);`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS meetings (
