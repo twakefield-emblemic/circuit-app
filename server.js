@@ -497,6 +497,21 @@ app.post("/api/ask", requireAppSecret, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Self-serve entry point — one public link that can be handed to any number of people
+// (a QR code at badge pickup, a slide at a talk, anyone who asks "what's that app") rather
+// than Terrence hand-generating a slug per person. Each visit mints a brand-new unguessable
+// workspace slug and redirects straight into it — same lazy-creation model every /w/<slug>
+// link already uses, just self-service instead of pre-generated. Whatever URL this redirect
+// lands on IS that person's permanent link from then on, so the app reminds them (via the
+// workspace banner) to save it — revisiting /start again would mint a second, different,
+// empty workspace, not return them to this one.
+function generateWorkspaceSlug() {
+  return require("crypto").randomBytes(6).toString("hex"); // 12 lowercase hex chars — always matches WORKSPACE_ID_PATTERN
+}
+app.get("/start", (req, res) => {
+  res.redirect(302, "/w/" + generateWorkspaceSlug());
+});
+
 // index + SPA fallback — serve the (secret-injected) shell for any non-API route
 app.get(/^(?!\/api|\/health).*/, renderIndex);
 
