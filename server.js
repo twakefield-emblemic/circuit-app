@@ -175,6 +175,47 @@ app.delete("/api/scans/:id", requireAppSecret, resolveWorkspace, async (req, res
   } catch (err) { next(err); }
 });
 
+// ---------------- Live scan: Emblix logo recognition ----------------
+// The Scan tab streams a small camera frame here about once a second. We hand it to
+// emblemic-backend's /detect-logo (the same Google Vision + brand-database recognition the
+// Emblix app uses) and return just the match. Unrecognized frames are not logged there;
+// a recognized one is logged once as a scan, so Circuit scans show up in Brand Console.
+// If EMBLEMIC_BACKEND_URL / EMBLEMIC_APP_SECRET aren't set, the app falls back to
+// shutter-only scanning with Claude doing the identification, exactly as before.
+const EMBLEMIC_BACKEND_URL = (process.env.EMBLEMIC_BACKEND_URL || "").replace(/\/+$/, "");
+const EMBLEMIC_APP_SECRET = process.env.EMBLEMIC_APP_SECRET || "";
+
+app.post("/api/scan/detect", requireAppSecret, resolveWorkspace, upload.single("photo"), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "invalid_request", message: "no photo attached" });
+    if (!EMBLEMIC_BACKEND_URL || !EMBLEMIC_APP_SECRET) return res.json({ recognized: false, unavailable: true });
+    const form = new FormData();
+    form.append("image", new Blob([req.file.buffer], { type: req.file.mimetype || "image/jpeg" }), "frame.jpg");
+    form.append("platform", "circuit");
+    let r;
+    try {
+      r = await fetch(`${EMBLEMIC_BACKEND_URL}/detect-logo`, {
+        method: "POST",
+        headers: { "X-App-Secret": EMBLEMIC_APP_SECRET },
+        body: form,
+        signal: AbortSignal.timeout(8000),
+      });
+    } catch (e) {
+      return res.json({ recognized: false, error: "emblix_unreachable" });
+    }
+    if (!r.ok) return res.json({ recognized: false, error: `emblix_${r.status}` });
+    const d = await r.json().catch(() => ({}));
+    if (!d.recognized || !d.brand) return res.json({ recognized: false });
+    const confidence = Number(d.confidence);
+    res.json({
+      recognized: true,
+      brand: String(d.brand).slice(0, 120),
+      confidence: Number.isFinite(confidence) ? confidence : null,
+      emblixScanId: d.scanId ?? null,
+    });
+  } catch (err) { next(err); }
+});
+
 app.post("/api/scan", requireAppSecret, resolveWorkspace, upload.single("photo"), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: "invalid_request", message: "no photo attached" });
@@ -192,9 +233,15 @@ app.post("/api/scan", requireAppSecret, resolveWorkspace, upload.single("photo")
     const goals = (active && active.goals) || [];
     const linkedinUrl = (rows[0] && rows[0].linkedin_url) || "";
     const companyName = (active && active.name) || "";
+    // Set when the live scanner already recognized the logo through Emblix, so Claude
+    // spends its searches on what's current about the company instead of identifying it.
+    const detectedBrand = req.body && typeof req.body.detected_brand === "string" ? req.body.detected_brand : "";
+    const detectedConfidence = req.body ? Number(req.body.detected_confidence) : NaN;
     const result = await identifyVendor(req.file.buffer, req.file.mimetype || "image/jpeg", goals, {
       linkedinUrl,
       companyName,
+      detectedBrand,
+      detectedConfidence: Number.isFinite(detectedConfidence) ? detectedConfidence : null,
     });
     res.json(result);
   } catch (err) { next(err); }
