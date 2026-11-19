@@ -4,69 +4,71 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Circuit</title>
-<meta name="theme-color" content="#FF6600">
+<meta name="theme-color" content="#00A0DB">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --paper: #FFFCFA;
+    /* CES 2027 palette (from the official CES/CTA brand guide: Brand Blue #00A0DB family) --
+       was Circuit's original orange/beige (--accent: #FF6600, --cream: #FFD9AD). */
+    --paper: #F6FBFE;
     --surface: #FFFFFF;
-    --surface-2: #FDECDF;
-    --ink: #1A1712;
-    --ink-dim: rgba(26,23,18,.60);
-    --ink-faint: rgba(26,23,18,.38);
-    --accent: #FF6600;
-    --accent-ink: #1A1712;
-    --accent-soft: rgba(255,102,0,.12);
-    --cream: #FFD9AD;
-    --line: rgba(26,23,18,.12);
-    --line-strong: rgba(26,23,18,.22);
+    --surface-2: #E4F3FB;
+    --ink: #0D1B26;
+    --ink-dim: rgba(13,27,38,.60);
+    --ink-faint: rgba(13,27,38,.38);
+    --accent: #00A0DB;
+    --accent-ink: #FFFFFF;
+    --accent-soft: rgba(0,160,219,.12);
+    --cream: #94D9F8;
+    --line: rgba(13,27,38,.12);
+    --line-strong: rgba(13,27,38,.22);
     --good: #1F8F5C;
     --good-soft: rgba(31,143,92,.12);
     --warn: #B8790C;
-    --low: #9A6B52;
-    --shadow: 0 1px 2px rgba(26,23,18,.06), 0 12px 28px -14px rgba(26,23,18,.28);
+    --low: #6B7A94;
+    --shadow: 0 1px 2px rgba(13,27,38,.06), 0 12px 28px -14px rgba(13,27,38,.28);
     --radius: 18px;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --paper: #191410;
-      --surface: #241C15;
-      --surface-2: #140F0B;
-      --ink: #FBF3EA;
-      --ink-dim: rgba(251,243,234,.62);
-      --ink-faint: rgba(251,243,234,.40);
-      --accent: #FF7A1F;
-      --accent-ink: #191410;
-      --accent-soft: rgba(255,122,31,.16);
-      --cream: #4A2E17;
-      --line: rgba(251,243,234,.14);
-      --line-strong: rgba(251,243,234,.24);
+      --paper: #0B1A26;
+      --surface: #12283A;
+      --surface-2: #0A1826;
+      --ink: #F3F8FB;
+      --ink-dim: rgba(243,248,251,.62);
+      --ink-faint: rgba(243,248,251,.40);
+      --accent: #44C8F5;
+      --accent-ink: #00263D;
+      --accent-soft: rgba(68,200,245,.16);
+      --cream: #123A52;
+      --line: rgba(243,248,251,.14);
+      --line-strong: rgba(243,248,251,.24);
       --good: #5FD996;
       --good-soft: rgba(95,217,150,.14);
       --warn: #E8B04B;
-      --low: #C99A82;
+      --low: #9FB4C9;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 32px -16px rgba(0,0,0,.6);
     }
   }
   :root[data-theme="dark"] {
-    --paper: #191410;
-    --surface: #241C15;
-    --surface-2: #140F0B;
-    --ink: #FBF3EA;
-    --ink-dim: rgba(251,243,234,.62);
-    --ink-faint: rgba(251,243,234,.40);
-    --accent: #FF7A1F;
-    --accent-ink: #191410;
-    --accent-soft: rgba(255,122,31,.16);
-    --cream: #4A2E17;
-    --line: rgba(251,243,234,.14);
-    --line-strong: rgba(251,243,234,.24);
+    --paper: #0B1A26;
+    --surface: #12283A;
+    --surface-2: #0A1826;
+    --ink: #F3F8FB;
+    --ink-dim: rgba(243,248,251,.62);
+    --ink-faint: rgba(243,248,251,.40);
+    --accent: #44C8F5;
+    --accent-ink: #00263D;
+    --accent-soft: rgba(68,200,245,.16);
+    --cream: #123A52;
+    --line: rgba(243,248,251,.14);
+    --line-strong: rgba(243,248,251,.24);
     --good: #5FD996;
     --good-soft: rgba(95,217,150,.14);
     --warn: #E8B04B;
-    --low: #C99A82;
+    --low: #9FB4C9;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 16px 32px -16px rgba(0,0,0,.6);
   }
 
@@ -1074,10 +1076,10 @@
   var EVENT_START = new Date("2027-01-06T09:00:00-08:00");
   var EVENT_END   = new Date("2027-01-09T18:00:00-08:00");
   var GOAL_OPTIONS = [
-    "Find new manufacturing partners",
-    "Vet suppliers for an existing line",
-    "Scope competitors in my category",
-    "Check out the CoCreate Pitch showcase",
+    "Find partners for Emblemic's product suite",
+    "Meet investors or corporate VC / corp dev",
+    "Connect with enterprise brands as potential customers",
+    "Scope AI / software companies to partner with",
     "General market recon"
   ];
   // Plays the same role for an Exhibitor Mode persona that GOAL_OPTIONS plays for a buyer —
