@@ -35,3 +35,7 @@ services:
         generateValue: true
       - key: OWNER_WORKSPACE
         value: main
+      - key: EMBLEMIC_BACKEND_URL
+        value: https://console.emblemic.ai
+      - key: EMBLEMIC_APP_SECRET
+        sync: false

@@ -452,6 +452,31 @@
   .camera-btn svg { width: 26px; height: 26px; }
   .scan-stage .hint { font-size: 13px; color: var(--ink-dim); max-width: 260px; line-height: 1.5; }
 
+  /* ---------- live scan (Emblix-style: point and it locks on, no submit step) ---------- */
+  .live-scan {
+    position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 62vh; border-radius: var(--radius);
+    overflow: hidden; background: #0b1622; box-shadow: var(--shadow);
+  }
+  .live-scan video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .live-reticle {
+    position: absolute; left: 50%; top: 46%; width: 62%; aspect-ratio: 1; transform: translate(-50%, -50%);
+    border-radius: 22px; border: 2px solid rgba(255,255,255,.75); box-shadow: 0 0 0 9999px rgba(0,0,0,.18);
+    transition: border-color .25s, transform .25s;
+  }
+  .live-scan.searching .live-reticle { animation: reticle-breathe 1.8s ease-in-out infinite; }
+  .live-scan.locked .live-reticle { border-color: var(--accent); transform: translate(-50%, -50%) scale(.94); animation: none; }
+  @keyframes reticle-breathe { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+  .live-status {
+    position: absolute; left: 12px; right: 12px; top: 12px; text-align: center; font-size: 13px; font-weight: 600;
+    color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.55);
+  }
+  .live-shutter {
+    position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); width: 64px; height: 64px;
+    border-radius: 50%; border: 4px solid #fff; background: rgba(255,255,255,.28); cursor: pointer;
+  }
+  .live-shutter:active { background: rgba(255,255,255,.6); }
+  .live-alt { background: none; border: none; color: var(--accent); font-weight: 600; font-size: 13px; cursor: pointer; padding: 6px; }
+
   .btn {
     border: none; border-radius: 12px; padding: 13px 18px; font-weight: 700; font-size: 14.5px;
     cursor: pointer; font-family: inherit; width: 100%;
@@ -2597,50 +2622,161 @@
     });
   }
 
+  // ---------------- Live scan ----------------
+  // The Scan tab opens straight into a live camera, the way Emblix does. In vendor mode it
+  // sends a small frame to Emblix's logo recognition (via /api/scan/detect) about once a
+  // second; the moment a logo is recognized it locks on, grabs a sharp frame and runs the
+  // Emblemic Score with no preview or Identify step. The shutter is always there for booths
+  // with no recognizable logo (a sign, a card), and attendee mode is shutter-only.
+  var liveStream = null, liveTimer = null, liveSession = 0, liveTries = 0, scanInFlight = false;
+  var LIVE_INTERVAL_MS = 1000, LIVE_MIN_CONFIDENCE = 0.5;
+
+  function scanViewActive() { var v = $("view-scan"); return !!(v && v.classList.contains("active")) && !document.hidden; }
+
+  function stopLiveCamera() {
+    liveSession++;
+    clearTimeout(liveTimer); liveTimer = null;
+    if (liveStream) { liveStream.getTracks().forEach(function (t) { t.stop(); }); liveStream = null; }
+  }
+
+  function setLiveStatus(text, state) {
+    var st = $("live-status"); if (st) st.textContent = text;
+    var box = $("live-scan"); if (box) { box.classList.toggle("searching", state === "searching"); box.classList.toggle("locked", state === "locked"); }
+  }
+
+  function grabFrame(maxDim, quality) {
+    var video = $("live-video");
+    if (!video || !video.videoWidth) return Promise.reject(new Error("no frame"));
+    var w = video.videoWidth, h = video.videoHeight, k = Math.min(1, maxDim / Math.max(w, h));
+    var c = document.createElement("canvas");
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    c.getContext("2d").drawImage(video, 0, 0, c.width, c.height);
+    return new Promise(function (resolve, reject) {
+      c.toBlob(function (b) { b ? resolve(b) : reject(new Error("no blob")); }, "image/jpeg", quality);
+    });
+  }
+
   function renderScanIdle() {
+    stopLiveCamera();
     $("scan-eyebrow").textContent = scanMode === "attendee" ? "Scan a fellow attendee" : "Scan a booth";
     var hint = scanMode === "attendee"
-      ? "Snap their badge, business card, or just the person. Claude will identify them, search for what's public, and score the connection against your goals."
-      : "Snap the vendor's logo, booth sign, or business card. Claude will identify it, search for what's current, and lay out five quick takeaways.";
+      ? "Frame their badge or business card and tap the shutter. Circuit identifies them and scores the connection against your goals."
+      : "Point at the logo or booth sign. Circuit locks on by itself and scores it against your goals. No logo? Tap the shutter.";
+    var canLive = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+    if (!canLive) { renderScanFallback(hint, ""); return; }
+
+    $("scan-body").innerHTML =
+      '<div class="scan-stage" style="border:none;padding:0;">' +
+        '<div class="live-scan" id="live-scan">' +
+          '<video id="live-video" playsinline muted autoplay></video>' +
+          '<div class="live-reticle"></div>' +
+          '<div class="live-status" id="live-status">Starting camera&hellip;</div>' +
+          '<button class="live-shutter" id="live-shutter" aria-label="Scan now"></button>' +
+        '</div>' +
+        '<div class="hint">' + hint + '</div>' +
+        '<button class="live-alt" id="live-photo">Use a photo instead</button>' +
+        '<input type="file" id="scan-file-input" accept="image/*" hidden>' +
+      '</div>';
+    bindPhotoPicker("live-photo");
+    $("live-shutter").addEventListener("click", function () {
+      grabFrame(1600, 0.88).then(function (blob) { stopLiveCamera(); runIdentify(blob, null); })
+        .catch(function () { toast("Camera isn't ready yet"); });
+    });
+    if (scanViewActive()) startLiveCamera();
+  }
+
+  function startLiveCamera() {
+    var session = ++liveSession;
+    liveTries = 0;
+    navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false
+    }).then(function (stream) {
+      if (session !== liveSession) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+      liveStream = stream;
+      var video = $("live-video");
+      if (!video) { stopLiveCamera(); return; }
+      video.srcObject = stream;
+      var p = video.play(); if (p && p.catch) p.catch(function () {});
+      if (scanMode === "attendee") { setLiveStatus("Frame the badge or card, then tap the shutter", ""); return; }
+      setLiveStatus("Looking for a logo\u2026", "searching");
+      liveTimer = setTimeout(function () { detectTick(session); }, 700);
+    }).catch(function () {
+      if (session !== liveSession) return;
+      renderScanFallback(null, "Camera access is off for Circuit. Turn it on in your browser or phone settings to scan live, or use a photo for now.");
+    });
+  }
+
+  function detectTick(session) {
+    if (session !== liveSession || !liveStream) return;
+    var video = $("live-video");
+    if (!video || video.readyState < 2) { liveTimer = setTimeout(function () { detectTick(session); }, 300); return; }
+    grabFrame(1024, 0.8).then(function (blob) {
+      var form = new FormData();
+      form.append("photo", blob, "frame.jpg");
+      return api("/api/scan/detect", { method: "POST", body: form });
+    }).then(function (d) {
+      if (session !== liveSession) return;
+      if (d && d.unavailable) { setLiveStatus("Tap the shutter to scan", ""); return; } // recognition not configured: shutter-only
+      if (d && d.recognized && (d.confidence == null || d.confidence >= LIVE_MIN_CONFIDENCE)) {
+        setLiveStatus("Locked on: " + d.brand, "locked");
+        if (navigator.vibrate) navigator.vibrate(30);
+        grabFrame(1600, 0.88).then(function (hi) { stopLiveCamera(); runIdentify(hi, { brand: d.brand, confidence: d.confidence }); })
+          .catch(function () { stopLiveCamera(); renderScanError(null); });
+        return;
+      }
+      liveTries++;
+      if (liveTries === 6) setLiveStatus("No logo yet \u2014 hold steady, or tap the shutter", "searching");
+      liveTimer = setTimeout(function () { detectTick(session); }, LIVE_INTERVAL_MS);
+    }).catch(function () {
+      if (session !== liveSession) return;
+      liveTimer = setTimeout(function () { detectTick(session); }, LIVE_INTERVAL_MS * 2);
+    });
+  }
+
+  // No live camera (old browser, or permission denied): one tap opens the camera or photo
+  // picker and the scan starts the moment a photo is chosen. Still no Identify step.
+  function renderScanFallback(hint, notice) {
+    stopLiveCamera();
+    hint = hint || (scanMode === "attendee" ? "Snap their badge or business card." : "Snap the vendor's logo, booth sign, or business card.");
     $("scan-body").innerHTML =
       '<div class="scan-stage">' +
-        '<button class="camera-btn" id="scan-camera-btn">' +
+        (notice ? '<div class="hint" style="color:var(--ink);">' + escapeHtml(notice) + '</div>' : '') +
+        '<button class="camera-btn" id="scan-camera-btn" aria-label="Take a photo">' +
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V6a2 2 0 0 1 2-2h2M20 8V6a2 2 0 0 0-2-2h-2M4 16v2a2 2 0 0 0 2 2h2M20 16v2a2 2 0 0 1-2 2h-2"/><circle cx="12" cy="12" r="3.5"/></svg>' +
         '</button>' +
         '<div class="hint">' + hint + '</div>' +
         '<input type="file" id="scan-file-input" accept="image/*" capture="environment" hidden>' +
       '</div>';
-    var btn = $("scan-camera-btn");
+    bindPhotoPicker("scan-camera-btn");
+  }
+
+  function bindPhotoPicker(buttonId) {
     var input = $("scan-file-input");
-    btn.addEventListener("click", function () { input.click(); });
+    $(buttonId).addEventListener("click", function () { input.click(); });
     input.addEventListener("change", function () {
-      if (input.files && input.files[0]) {
-        pendingImageFile = input.files[0];
-        renderScanPreview();
-      }
+      if (input.files && input.files[0]) { stopLiveCamera(); runIdentify(input.files[0], null); }
     });
   }
 
-  function renderScanPreview() {
-    var url = URL.createObjectURL(pendingImageFile);
-    $("scan-body").innerHTML =
-      '<div class="scan-stage">' +
-        '<img class="preview" src="' + url + '" alt="Photo to identify">' +
-        '<div class="btn-row" style="width:100%;">' +
-          '<button class="btn btn-ghost" id="scan-retake">Retake</button>' +
-          '<button class="btn btn-primary" id="scan-identify">Identify</button>' +
-        '</div>' +
-      '</div>';
-    $("scan-retake").addEventListener("click", function () { pendingImageFile = null; renderScanIdle(); });
-    $("scan-identify").addEventListener("click", runIdentify);
-  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden) { if (liveStream) stopLiveCamera(); return; }
+    if (scanViewActive() && $("live-video") && !liveStream && !scanInFlight) startLiveCamera();
+  });
 
-  function runIdentify() {
-    if (!pendingImageFile) return;
-    $("scan-body").innerHTML = '<div class="thinking"><span class="spinner"></span> Identifying &amp; searching for what\'s current&hellip; usually 15&ndash;45s.</div>';
+  function runIdentify(imageBlob, detected) {
+    if (!imageBlob) return;
+    pendingImageFile = imageBlob;
+    scanInFlight = true;
+    $("scan-body").innerHTML = '<div class="thinking"><span class="spinner"></span> ' +
+      (detected ? 'Found <b>' + escapeHtml(detected.brand) + '</b>. Scoring it against your goals&hellip;'
+                : 'Identifying &amp; searching for what\'s current&hellip;') + '</div>';
 
     var form = new FormData();
-    form.append("photo", pendingImageFile);
+    form.append("photo", imageBlob, "scan.jpg");
+    if (detected && scanMode !== "attendee") {
+      form.append("detected_brand", detected.brand);
+      if (detected.confidence != null) form.append("detected_confidence", String(detected.confidence));
+    }
     var mode = scanMode;
 
     var endpoint = mode === "attendee" ? "/api/peer-scan" : "/api/scan";
@@ -2676,9 +2812,10 @@
               scoreLabel: data.score_label || "",
               scoreReasons: data.score_reasons || ""
             };
+        scanInFlight = false;
         renderScanResult();
       })
-      .catch(function (e) { renderScanError(e); });
+      .catch(function (e) { scanInFlight = false; renderScanError(e); });
   }
 
   function renderScanError(e) {
@@ -3130,6 +3267,8 @@
     Array.prototype.forEach.call(document.querySelectorAll(".view"), function (v) { v.classList.remove("active"); });
     Array.prototype.forEach.call(document.querySelectorAll(".tab-btn"), function (b) { b.classList.toggle("active", b.dataset.tab === name); });
     $("view-" + name).classList.add("active");
+    if (name !== "scan") stopLiveCamera();
+    else if (!lastResult && !scanInFlight) renderScanIdle();
     if (name === "me") renderMe();
     if (name === "exhibit") renderExhibitView();
     document.querySelector("main").scrollTop = 0;
