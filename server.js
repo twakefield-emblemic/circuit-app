@@ -59,6 +59,12 @@ function resolveWorkspace(req, res, next) {
 
 app.get("/health", (req, res) => res.json({ ok: true }));
 
+// CES 2027 exhibitor directory (from exhibitors.ces.tech), loaded by the frontend at startup.
+app.get("/data/ces2027-exhibitors.json", (req, res) => {
+  res.set("Cache-Control", "public, max-age=3600");
+  res.sendFile(path.join(__dirname, "data", "ces2027-exhibitors.json"));
+});
+
 // Picks the "currently representing" company entry from a profile row — the one whose
 // goals/name drive scoring, the goals checklist, and Top Matches right now. Falls back to
 // the first company if active_company_id doesn't match anything (e.g. it was removed).

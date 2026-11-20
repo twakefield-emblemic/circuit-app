@@ -1,8 +1,8 @@
 # Circuit — backend
 
-Personal CoCreate LA 2026 companion for Terrence. Standalone Node/Express backend:
+Personal CES 2027 companion (Jan 5–9, 2027, Las Vegas). Event schedule comes from ces.tech/schedule; the exhibitor directory (data/ces2027-exhibitors.json) from exhibitors.ces.tech. Standalone Node/Express backend:
 serves the Circuit web app (`public/index.html`) and calls the Anthropic API directly
-(vision + live web search) for booth scans and "Ask about CoCreate" questions.
+(vision + live web search) for booth scans and "Ask about CES" questions.
 
 Live at https://circuit-app-sq1o.onrender.com (Render web service + managed Postgres).
 
