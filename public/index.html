@@ -1102,7 +1102,19 @@
     "Meet investors or corporate VC / corp dev",
     "Connect with enterprise brands as potential customers",
     "Scope AI / software companies to partner with",
-    "General market recon"
+    "General market recon",
+    "Sign Brand Console pilot brands (LOIs)",
+    "Meet agencies & retail media networks as resellers",
+    "Find OOH & digital signage partners",
+    "Open doors with smart glasses makers",
+    "Pursue phone OEM & camera platform integrations",
+    "Pilot NFC & App Clip signage vendors",
+    "Scout computer vision & on-device AI suppliers",
+    "Meet sports & venue tech partners",
+    "Get press & creator coverage for Emblix",
+    "Collect Emblix early-access sign-ups",
+    "Study CES Innovation Awards for 2028",
+    "Find market data & fintech partners for YoMKT"
   ];
   // Plays the same role for an Exhibitor Mode persona that GOAL_OPTIONS plays for a buyer —
   // what a scan of an attendee or another booth gets scored against.
@@ -1418,7 +1430,19 @@
     "Meet investors or corporate VC / corp dev": { topics: ["Investment & Venture Capital", "Startups"], words: ["investor", "venture", "funding", "startup"] },
     "Connect with enterprise brands as potential customers": { topics: ["Marketing & Advertising", "Enterprise", "Retail/E-Commerce"], words: ["brand", "customer", "commerce", "retail"] },
     "Scope AI / software companies to partner with": { topics: ["Artificial Intelligence", "Computing"], words: ["agentic", "agents", "ai "] },
-    "General market recon": { topics: [], words: [], kinds: ["keynote"], tracks: ["Great Minds", "CTA Stage"] }
+    "General market recon": { topics: [], words: [], kinds: ["keynote"], tracks: ["Great Minds", "CTA Stage"] },
+    "Sign Brand Console pilot brands (LOIs)": { topics: ["Marketing & Advertising", "Retail/E-Commerce", "Enterprise"], words: ["brand", "loyalty", "engagement", "cmo"] },
+    "Meet agencies & retail media networks as resellers": { topics: ["Marketing & Advertising", "Retail/E-Commerce"], words: ["agency", "retail media", "media network", "advertis", "wpp"] },
+    "Find OOH & digital signage partners": { topics: ["Video & Display", "Marketing & Advertising"], words: ["out-of-home", "ooh", "signage", "display", "billboard"] },
+    "Open doors with smart glasses makers": { topics: ["XR & Spatial Computing", "Wearables"], words: ["glasses", "spatial", "xr", "wearable", "augmented"] },
+    "Pursue phone OEM & camera platform integrations": { topics: ["Computing", "Home Entertainment & Office Hardware"], words: ["smartphone", "phone", "camera", "on-device", "mobile"] },
+    "Pilot NFC & App Clip signage vendors": { topics: ["IoT/Sensors", "Retail/E-Commerce"], words: ["nfc", "sensor", "connected", "in-store"] },
+    "Scout computer vision & on-device AI suppliers": { topics: ["Artificial Intelligence", "Computing", "IoT/Sensors"], words: ["computer vision", "edge", "on-device", "chip", "inference", "physical ai"] },
+    "Meet sports & venue tech partners": { topics: ["Sports", "Content & Entertainment", "Gaming & Esports"], words: ["sports", "fan", "venue", "stadium", "league"] },
+    "Get press & creator coverage for Emblix": { topics: ["Creators", "Content & Entertainment", "Streaming"], words: ["creator", "influencer", "media", "storytell"] },
+    "Collect Emblix early-access sign-ups": { topics: ["Creators", "Marketing & Advertising"], words: ["consumer app", "community", "social", "fans"] },
+    "Study CES Innovation Awards for 2028": { topics: ["Startups", "Research", "Innovation for All"], words: ["innovation award", "honoree", "innovation"] },
+    "Find market data & fintech partners for YoMKT": { topics: ["Fintech", "Investment & Venture Capital"], words: ["fintech", "payments", "financial", "market data", "invest"] }
   };
   function sessionCandidatesForGoal(goal) {
     var spec = SESSION_GOAL_TOPICS[goal];
